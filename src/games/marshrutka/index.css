@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@keyframes swipeLeft {
+  0%, 100% { transform: translateX(0); opacity: 0.7; }
+  50% { transform: translateX(-8px); opacity: 1; }
+}
+@keyframes swipeRight {
+  0%, 100% { transform: translateX(0); opacity: 0.7; }
+  50% { transform: translateX(8px); opacity: 1; }
+}
+@theme {
+  --animate-shake: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+  --animate-swipeLeft: swipeLeft 1s ease-in-out infinite;
+  --animate-swipeRight: swipeRight 1s ease-in-out infinite;
+  --keyframes-shake: {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); }
+  }
+}
+
+

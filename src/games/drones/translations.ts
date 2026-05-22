@@ -1,0 +1,40 @@
+export type Lang = 'en' | 'uk';
+
+export const TRANSLATIONS = {
+  en: {
+    title: "Defend Ukraine",
+    desc: "Protect the skies from Russian drone attacks. Tap to launch Ukrainian heros.",
+    engage: "Be Brave",
+    baseDestroyed: "City Hit",
+    deployAgain: "DEFEND AGAIN",
+    tapToShoot: "Tap to shoot Interceptors",
+    outOfAmmo: "OUT OF AMMO!",
+    lowAmmo: "LOW AMMO",
+    wave: "WAVE",
+    tapDroneToSaveCity: "tap the drone to save the city",
+    warnRelatives: "warn your relatives!",
+    goToShelter: "go to shelter!",
+    combo: "Combo",
+    easyMode: "Easy Mode",
+    hardMode: "Hard Mode",
+    quit: "Quit",
+  },
+  uk: {
+    title: "Захист України",
+    desc: "Захистіть небо від російських дронів. Торкайтеся, щоб запускати українських героїв.",
+    engage: "Будь Сміливим",
+    baseDestroyed: "По місту влучили",
+    deployAgain: "ЗАХИЩАТИ ЗНОВУ",
+    tapToShoot: "Торкніться, щоб стріляти",
+    outOfAmmo: "ПАТРОНИ ЗАКІНЧИЛИСЯ!",
+    lowAmmo: "МАЛО ПАТРОНІВ",
+    wave: "ХВИЛЯ",
+    tapDroneToSaveCity: "Збий дрон, щоб врятувати місто",
+    warnRelatives: "попередьте рідних!",
+    goToShelter: "в укриття!",
+    combo: "Комбо",
+    easyMode: "Легкий режим",
+    hardMode: "Складний режим",
+    quit: "Вийти",
+  }
+};

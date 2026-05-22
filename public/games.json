@@ -1,0 +1,43 @@
+[
+  {
+    "id": "drones",
+    "cat": "arcade",
+    "title": { "en": "Russian Drones", "uk": "Російські Дрони" },
+    "url": "./games/drones/",
+    "icon": "/images/drone.png",
+    "orientation": "portrait"
+  },
+  {
+    "id": "marshrutka",
+    "cat": "arcade",
+    "title": { "en": "Crazy Marshrutka", "uk": "Шалена Маршрутка" },
+    "url": "./games/marshrutka/",
+    "icon": "/images/marshrutka.png",
+    "orientation": "portrait"
+  },
+  {
+    "id": "football",
+    "cat": "arcade",
+    "title": { "en": "Football Face", "uk": "Футбольне обличчя" },
+    "url": "./games/football/",
+    "icon": "/images/football.png",
+    "comingSoon": true,
+    "orientation": "portrait"
+  },
+  {
+    "id": "shooter",
+    "cat": "arcade",
+    "title": { "en": "Odesa Sharpshooter", "uk": "Одеський Стрілець" },
+    "url": "./games/shooter/",
+    "icon": "/images/shooter.png",
+    "orientation": "landscape"
+  },
+  {
+    "id": "trivia",
+    "cat": "history",
+    "title": { "en": "Odesa & Ukraine Trivia", "uk": "Вікторина про Одесу та Україну" },
+    "url": "./games/trivia/",
+    "icon": "/images/trivia.png",
+    "orientation": "portrait"
+  }
+]

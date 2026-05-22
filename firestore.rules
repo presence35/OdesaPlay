@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ──────────────────────────────────────────────
+    // Global defaults: deny everything by default
+    // ──────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // Shared helpers
+    // ──────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuth() && request.auth.token.admin == true;
+    }
+
+    function isAdminByNickname() {
+      return isAuth()
+        && request.auth.uid != null
+        && get(
+          /databases/$(database)/documents/artifacts/odesa-gra-prod/public/data/profiles/$(request.auth.uid)
+        ).data.nickname.matches('(?i)^bodi\\d+$');
+    }
+
+    function isValidString(val, maxLen) {
+      return val is string && val.size() > 0 && val.size() <= maxLen;
+    }
+
+    function isValidScore(val) {
+      return val is number && val >= 0 && val <= 999999;
+    }
+
+    function isInFuture(timestampMs) {
+      return timestampMs is number && timestampMs > request.time.toMillis();
+    }
+
+    // All application data lives under /artifacts/{appId}/public/data/
+    match /artifacts/{appId}/public/data/{collection}/{doc} {
+
+      // ─── Profiles ───────────────────────────────
+      // Users can read any profile, write only their own.
+      allow read: if isAuth();
+      allow create: if isOwner(doc)
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() <= 15
+        && request.resource.data.nickname.size() >= 3;
+      allow update: if isOwner(doc)
+        && (!request.resource.data.keys().has('nickname')
+          || (request.resource.data.nickname is string
+            && request.resource.data.nickname.size() <= 15
+            && request.resource.data.nickname.size() >= 3));
+      allow delete: if false; // profiles are never deleted
+
+      // ─── Username Locks ──────────────────────────
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly(['uid', 'original'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if false; // username locks are permanent
+      allow delete: if false;
+
+      // ─── Leaderboards ────────────────────────────
+      // Anyone can read. Writes must match the authenticated user's uid.
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAny(['uid', 'nickname', 'avatar', 'gameId', 'score', 'timestamp', 'venueId', 'playCount'])
+        && isValidString(request.resource.data.nickname, 15)
+        && request.resource.data.gameId in ['shooter', 'drones', 'marshrutka', 'trivia']
+        && isValidScore(request.resource.data.score);
+      allow update: if isAuth()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && isValidScore(request.resource.data.score);
+      allow delete: if false;
+
+      // ─── Player Progress ─────────────────────────
+      allow read: if isAuth();
+      allow write: if isOwner(doc)
+        && request.resource.data.keys().hasAny(['achievements', 'streak', 'xp', 'prevScores', 'updatedAt'])
+        && (!request.resource.data.keys().has('xp') || (request.resource.data.xp is number && request.resource.data.xp >= 0))
+        && (!request.resource.data.keys().has('streak') || (request.resource.data.streak is number && request.resource.data.streak >= 0));
+
+      // ─── Claims (prize redemptions) ──────────────
+      // Append-only: users can create claims, never modify or delete.
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasAll(['code', 'venueId', 'rewardType', 'gameTitle', 'score', 'tier', 'timestamp', 'expiresAt', 'uid'])
+        && request.resource.data.uid == request.auth.uid
+        && isValidString(request.resource.data.code, 10)
+        && request.resource.data.tier in [1, 2, 3]
+        && isInFuture(request.resource.data.expiresAt)
+        && isValidScore(request.resource.data.score);
+      allow update: if false;
+      allow delete: if isAdmin(); // admins can void claims
+
+      // ─── Active Sessions ─────────────────────────
+      // Users manage their own session documents.
+      allow read: if isAuth();
+      allow create: if isOwner(doc)
+        && request.resource.data.keys().hasAny(['userId', 'nickname', 'avatar', 'gameId', 'gameTitle', 'venueId', 'startedAt', 'lastHeartbeat', 'active'])
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(doc);
+      allow delete: if true; // anyone can delete their own or cleanup stale
+
+      // ─── Referral Events ─────────────────────────
+      // Append-only event log.
+      allow read: if isAdmin();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasAny(['referrerId', 'visitorId', 'type', 'source', 'timestamp', 'gameId', 'venueId', 'userAgent'])
+        && request.resource.data.type in ['click', 'conversion'];
+      allow update: if false;
+      allow delete: if false;
+
+      // ─── Check-ins ───────────────────────────────
+      // Users record their own venue check-ins.
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasAny(['userId', 'restaurantId', 'mode', 'timestamp', 'gameScores'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.mode in ['full', 'casual'];
+      allow update: if false;
+      allow delete: if false;
+
+      // ─── Venues (restaurant metadata) ────────────
+      // Publicly readable, admin-writable only.
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Venue Configs (tier prizes) ─────────────
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Venue Stats ─────────────────────────────
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── QR Batches ──────────────────────────────
+      allow read: if isAdmin();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Venue Cards (manager codes) ─────────────
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Venue Check-in Codes ────────────────────
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Map Config ──────────────────────────────
+      allow read: if isAuth();
+      allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Catch-all: deny unknown collections ─────
+      allow read, write: if false;
+    }
+  }
+}

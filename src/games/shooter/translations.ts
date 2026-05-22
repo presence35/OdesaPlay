@@ -1,0 +1,42 @@
+export type Lang = 'en' | 'uk';
+
+export const TRANSLATIONS = {
+  en: {
+    title: "Odesa Sharpshooter",
+    subtitle: "Shoot the noisy vehicles to keep the peace",
+    play: "Play",
+    rotateDevice: "Rotate Device",
+    rotateDesc: "Please rotate your phone to landscape mode to play Odesa Sharpshooter.",
+    silence: "Silence",
+    gameOver: "Game Over!",
+    finalSilence: "Final Silence Level",
+    playAgain: "Play Again",
+    waterGun: "Water Gun",
+    banana: "Banana",
+    ak47: "AK-47",
+    locked: "Locked",
+    paidOnlyAlert: "Real gun is for paid users only! Enjoy your coffee.",
+    noiseLevel: "Noise Level",
+    restoring: "Restoring graphics...",
+    quit: "Quit",
+  },
+  uk: {
+    title: "Одеський Снайпер",
+    subtitle: "Стріляйте по гучних автівках, щоб зберегти тишу",
+    play: "Грати",
+    rotateDevice: "Поверніть Пристрій",
+    rotateDesc: "Будь ласка, поверніть телефон у ландшафтний режим, щоб грати в Одеського Снайпера.",
+    silence: "Тиша",
+    gameOver: "Гру Завершено!",
+    finalSilence: "Рівень Тиші",
+    playAgain: "Грати Знову",
+    waterGun: "Водяний Пістолет",
+    banana: "Банан",
+    ak47: "АК-47",
+    locked: "Заблоковано",
+    paidOnlyAlert: "Справжня зброя тільки для платних користувачів! Насолоджуйтесь кавою.",
+    noiseLevel: "Рівень Шуму",
+    restoring: "Відновлення графіки...",
+    quit: "Вийти",
+  }
+};

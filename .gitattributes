@@ -1,0 +1,10 @@
+# Mark audio files as binary to prevent text-processing tools from corrupting them
+public/music/* binary
+games/*/public/music/* binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.flac binary
+*.aac binary
+*.wma binary
+*.m4a binary

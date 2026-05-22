@@ -1,0 +1,33 @@
+{
+  "name": "ODESA ГРА",
+  "short_name": "ODESA ГРА",
+  "description": "Грайте за Одесу",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["games", "entertainment"],
+  "lang": "uk",
+  "dir": "ltr"
+}
