@@ -735,22 +735,19 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         )}
       </AnimatePresence>
 
-      <header className="px-4 py-3 flex flex-wrap justify-between items-center gap-3 fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
+      <header className="px-3 py-1.5 flex flex-wrap justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
-          <h1 className="text-2xl font-black italic leading-none uppercase">
-            <span className="text-blue-500">{t.titleBlue}</span>
-            <span className="text-yellow-400">{t.titleYellow}</span>
-          </h1>
+          <img src="/images/logo_full.png" alt="OdesaPlay" className="h-8 w-auto" />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center rounded-full p-1 gap-1.5">
-            <button onClick={() => setLang('uk')} className={`w-8 h-8 flex items-center justify-center rounded-full text-xl transition-all ${lang === 'uk' ? 'bg-blue-600/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇺🇦</button>
-            <button onClick={() => setLang('en')} className={`w-8 h-8 flex items-center justify-center rounded-full text-xl transition-all ${lang === 'en' ? 'bg-red-500/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇬🇧</button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center rounded-full p-0.5 gap-1">
+            <button onClick={() => setLang('uk')} className={`w-7 h-7 flex items-center justify-center rounded-full text-lg transition-all ${lang === 'uk' ? 'bg-blue-600/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇺🇦</button>
+            <button onClick={() => setLang('en')} className={`w-7 h-7 flex items-center justify-center rounded-full text-lg transition-all ${lang === 'en' ? 'bg-red-500/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇬🇧</button>
           </div>
           <button 
             onClick={toggleMusic}
-            className={`p-2 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-slate-500 hover:text-white bg-slate-900'}`}
+            className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-slate-500 hover:text-white bg-slate-900'}`}
             title="Toggle Music"
           >
             <Music className="w-5 h-5" />

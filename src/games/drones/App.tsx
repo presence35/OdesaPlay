@@ -204,7 +204,7 @@ export default function App() {
         resizeTo: parent,
         autoDensity: true,
         resolution: Math.min(window.devicePixelRatio || 1, 2),
-        antialias: true,
+        antialias: false,
         backgroundAlpha: 1,
         backgroundColor: 0x0f172a, // very dark slate
       });
@@ -551,18 +551,15 @@ export default function App() {
           }
         });
 
-        // Particles
+        // Particles (batched single Graphics)
+        let pGfx = layers.particles.children[0] as PIXI.Graphics | undefined;
+        if (!pGfx) {
+          pGfx = new PIXI.Graphics();
+          layers.particles.addChild(pGfx);
+        }
+        pGfx.clear();
         g.particles.forEach(p => {
-          const id = `p_${p.id}`;
-          currentIds.add(id);
-          let gfx = visualsRef.current.get(id) as PIXI.Graphics;
-          if (!gfx) {
-            gfx = new PIXI.Graphics();
-            layers.particles.addChild(gfx);
-            visualsRef.current.set(id, gfx);
-            gfx.rect(0,0,4,4).fill({ color: PIXI.Color.shared.setValue(p.color) as any });
-          }
-          gfx.x = p.x; gfx.y = p.y; gfx.alpha = Math.max(0, p.life);
+          pGfx.rect(p.x - 2, p.y - 2, 4, 4).fill({ color: p.color as any, alpha: Math.max(0, p.life) });
         });
 
         // Floating texts

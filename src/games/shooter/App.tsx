@@ -5,6 +5,7 @@ import { Droplet, Banana } from 'lucide-react';
 import { sounds } from './sounds';
 import { TRANSLATIONS, Lang } from './translations';
 import { showToast } from '../../components/Toast';
+import { ObjectPool } from '../../utils/objectPool';
 import GameEndScreen from '../GameEndScreen';
 
 const LOGICAL_WIDTH = 1280;
@@ -61,8 +62,9 @@ export default function App() {
   
   // Pixi refs
   const pixiAppRef = useRef<PIXI.Application | null>(null);
+  const vehiclePoolRef = useRef<ObjectPool<PIXI.Container> | null>(null);
   const visualsRef = useRef(new Map<string, PIXI.Container>());
-  const particleVisualsRef = useRef(new Map<string, PIXI.Graphics>());
+  const particleGfxRef = useRef<PIXI.Graphics | null>(null);
   const projectileVisualsRef = useRef(new Map<string, PIXI.Container>());
   const texturesRef = useRef<Record<string, PIXI.Texture>>({});
   
@@ -111,8 +113,20 @@ export default function App() {
 
     (async () => {
       visualsRef.current.clear();
-      particleVisualsRef.current.clear();
+      particleGfxRef.current = null;
       projectileVisualsRef.current.clear();
+      vehiclePoolRef.current?.destroyAll(c => c.destroy());
+      const makeVContainer = () => {
+        const c = new PIXI.Container();
+        const s = new PIXI.Sprite(); s.anchor.set(0.5); s.label = 'body'; c.addChild(s);
+        const it = new PIXI.Text({ text: '', style: { fill: 0xffffff, fontSize: 30 }}); it.anchor.set(0.5); it.label = 'icon'; c.addChild(it);
+        const nt = new PIXI.Text({ text: '🔊', style: { fill: 0xffffff, fontSize: 30 }}); nt.anchor.set(0.5); nt.label = 'noise'; c.addChild(nt);
+        const wbg = new PIXI.Graphics(); wbg.label = 'waterbg'; c.addChild(wbg);
+        const wb = new PIXI.Graphics(); wb.label = 'waterbar'; c.addChild(wb);
+        return c;
+      };
+      const resetV = (c: PIXI.Container) => { c.visible = false; c.alpha = 1; };
+      vehiclePoolRef.current = new ObjectPool(makeVContainer, resetV, 20);
 
       layersRef.current = {
         background: new PIXI.Container(),
@@ -129,7 +143,7 @@ export default function App() {
         resizeTo: parent,
         autoDensity: true,
         resolution: Math.min(window.devicePixelRatio || 1, 2),
-        antialias: true,
+        antialias: false,
         backgroundAlpha: 0,
         premultipliedAlpha: false,
       });
@@ -413,38 +427,17 @@ export default function App() {
         const w = app.screen.width;
         const h = app.screen.height;
 
-        // Sync Vehicles
-        const currentVIds = new Set<string>();
+        // Sync Vehicles (pooled)
+        const vPool = vehiclePoolRef.current;
+        const usedV = new Set<PIXI.Container>();
         state.vehicles.forEach(v => {
-          currentVIds.add(v.id);
           let vContainer = visualsRef.current.get(v.id);
           if (!vContainer) {
-            vContainer = new PIXI.Container();
+            vContainer = vPool!.acquire();
             layers.entity.addChild(vContainer);
             visualsRef.current.set(v.id, vContainer);
-
-            // Setup sprites inside container
-            let vS = new PIXI.Sprite();
-            vS.anchor.set(0.5);
-            vS.label = 'body';
-            vContainer.addChild(vS);
-
-            let iconText = new PIXI.Text({ text: '', style: { fill: 0xffffff, fontSize: 30 }});
-            iconText.anchor.set(0.5);
-            iconText.label = 'icon';
-            vContainer.addChild(iconText);
-            
-            let noiseText = new PIXI.Text({ text: '🔊', style: { fill: 0xffffff, fontSize: 30 }});
-            noiseText.anchor.set(0.5);
-            noiseText.label = 'noise';
-            vContainer.addChild(noiseText);
-            
-            let waterBarBg = new PIXI.Graphics();
-            waterBarBg.label = 'waterbg';
-            let waterBar = new PIXI.Graphics();
-            waterBar.label = 'waterbar';
-            vContainer.addChild(waterBarBg, waterBar);
           }
+          usedV.add(vContainer);
 
           vContainer.x = v.x;
           vContainer.y = v.y;
@@ -464,7 +457,6 @@ export default function App() {
             body.width = drawW;
             body.height = drawH;
             
-            // Handle flipping
             body.scale.x = Math.abs(body.scale.x) * (v.direction === 1 ? -1 : 1);
           }
 
@@ -501,7 +493,11 @@ export default function App() {
         });
 
         for (const [id, c] of visualsRef.current.entries()) {
-          if (!currentVIds.has(id)) { c.destroy(); visualsRef.current.delete(id); }
+          if (!usedV.has(c)) {
+            layers.entity.removeChild(c);
+            vPool!.release(c);
+            visualsRef.current.delete(id);
+          }
         }
 
         // Sync Projectiles
@@ -541,25 +537,17 @@ export default function App() {
           if (!currentPIds.has(id)) { c.destroy(); projectileVisualsRef.current.delete(id); }
         }
 
-        // Sync Particles
-        const currentPartIds = new Set<string>();
-        state.particles.forEach(p => {
-          currentPartIds.add(p.id);
-          let pC = particleVisualsRef.current.get(p.id);
-          if (!pC) {
-            pC = new PIXI.Graphics();
-            layers.particle.addChild(pC);
-            particleVisualsRef.current.set(p.id, pC);
-            pC.circle(0, 0, p.size).fill({ color: PIXI.Color.shared.setValue(p.color) as any });
-          }
-          pC.x = p.x;
-          pC.y = p.y;
-          pC.alpha = Math.max(0, p.life / p.maxLife);
-        });
-
-        for (const [id, c] of particleVisualsRef.current.entries()) {
-          if (!currentPartIds.has(id)) { c.destroy(); particleVisualsRef.current.delete(id); }
+        // Sync Particles (batched single Graphics)
+        let batchP = particleGfxRef.current;
+        if (!batchP) {
+          batchP = new PIXI.Graphics();
+          layers.particle.addChild(batchP);
+          particleGfxRef.current = batchP;
         }
+        batchP.clear();
+        state.particles.forEach(p => {
+          batchP!.circle(p.x, p.y, p.size).fill({ color: p.color as any, alpha: Math.max(0, p.life / p.maxLife) });
+        });
 
         // Crosshair & Aim weapon
         const mx = mouseRef.current.x;
@@ -618,6 +606,8 @@ export default function App() {
       sounds.stopAll();
       isDestroyed = true;
       pixiAppRef.current = null;
+      vehiclePoolRef.current?.destroyAll(c => c.destroy());
+      vehiclePoolRef.current = null;
       if (app) {
         if (appInitialized) {
           try {

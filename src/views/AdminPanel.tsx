@@ -412,6 +412,11 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                               <button onClick={() => handleEditVenue(v)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title={t.editVenue}>
                                 <Pencil className="w-4 h-4 text-slate-400" />
                               </button>
+                              {venueBatch?.managerCode && (
+                                <button onClick={() => window.open(`${origin}/manager?v=${venueBatch.managerCode}`, '_blank')} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title="Manager Hub">
+                                  <ExternalLink className="w-4 h-4 text-yellow-400" />
+                                </button>
+                              )}
                               <button onClick={() => handleToggleDisable(v)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title={v.disabled ? t.enableVenue : t.disableVenue}>
                                 {v.disabled ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4 text-red-400" />}
                               </button>
