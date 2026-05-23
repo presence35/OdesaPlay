@@ -8,27 +8,27 @@ import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
   Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
   Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
-  Trophy, Flame, Star, Award, Target, Calendar
+  Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
 import {
   collection, doc, onSnapshot, addDoc, setDoc, deleteDoc, updateDoc,
-  serverTimestamp, increment, getDoc, query, where, orderBy, limit
+  serverTimestamp, increment, getDoc, getDocs, query, where, orderBy, limit
 } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { db, auth, getUserId, ensureAnonymousAuth } from '../firebase';
+import { db, auth, getUserId, ensureAnonymousAuth, requestFcmToken, onForegroundMessage } from '../firebase';
 import { translations, Language } from '../language';
 import { useAudio, TrackKey } from '../utils/audio';
 import { useFullscreenOnRotate } from '../utils/fullscreen';
-import { useVenues } from '../data/restaurants';
+import { useVenues, useActiveTournaments, useTournamentLeaderboard } from '../data/restaurants';
 import { showToast } from '../components/Toast';
 
 const TreasureHuntMap = lazy(() => import('../components/TreasureHuntMap'));
 const AdminPanel = lazy(() => import('../views/AdminPanel'));
 const SalesTool = lazy(() => import('../views/SalesTool'));
-import { Game, Claim, OperationType } from './gamehub/types';
+import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
 import { handleFirestoreError, transliterate, shareScore, getTier, triggerHaptic, calculatePlayerStats, getLevel, getXpForCurrentLevel, getXpForNextLevel, getXpProgress, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
@@ -113,12 +113,32 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [achievements, setAchievements] = useState<Record<string, { unlockedAt: any }>>({});
   const [streak, setStreak] = useState(0);
   const [xp, setXp] = useState(0);
-  const [leaderboardFilter, setLeaderboardFilter] = useState<'all' | 'week'>('week');
+  const [leaderboardFilter, setLeaderboardFilter] = useState<'all' | 'week' | 'alert'>('week');
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<string[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
   const [prevScores, setPrevScores] = useState<Record<string, number>>({});
   const [recruitCount, setRecruitCount] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
+    droneAlerts: false, gameReminders: false, venueSpecials: false
+  });
+  const [isRequestingNotif, setIsRequestingNotif] = useState(false);
+
+  // Tournament
+  const { tournaments: activeTournaments } = useActiveTournaments();
+  const [expandedTournament, setExpandedTournament] = useState<VenueTournament | null>(null);
+  const [tournamentPlayId, setTournamentPlayId] = useState<string | null>(null);
+  const { entries: tournamentEntries } = useTournamentLeaderboard(expandedTournament?.id || tournamentPlayId);
+  const previousRankRef = useRef<number | null>(null);
+  const notifiedTournamentsRef = useRef<Set<string>>(new Set());
+  const [playerPrizes, setPlayerPrizes] = useState<any[]>([]);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (activeTournaments.length === 0 && !expandedTournament) return;
+    const i = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(i);
+  }, [activeTournaments.length, !!expandedTournament]);
 
   useEffect(() => {
     if (!activeGame) {
@@ -168,6 +188,16 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     const params = new URLSearchParams(window.location.search);
     if (params.get('v')) setVenueId(params.get('v')!);
     if (params.get('r')) sessionStorage.setItem('odesa_referral', params.get('r')!);
+    if (params.get('game') && ['drones','shooter','marshrutka','trivia'].includes(params.get('game')!)) {
+      const gameId = params.get('game')!;
+      fetch('./games.json?t=' + Date.now())
+        .then(r => r.json())
+        .then((d: Game[]) => {
+          const game = d.find(g => g.id === gameId && !g.comingSoon);
+          if (game) { setActiveGame(game); requestFS(); }
+        })
+        .catch(console.error);
+    }
     
     const unsubscribeAuth = onAuthStateChanged(auth, async u => {
       if (u) {
@@ -184,16 +214,34 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     return () => unsubscribeAuth();
   }, []);
 
+  // Poll alert status from server for alertId tagging on scores
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/alert-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted) return;
+        (window as any).__alertStatus = { active: data.active, lastUpdate: data.lastUpdate };
+      } catch { /* server might be down, ignore */ }
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
   // Handle Profile Data
   useEffect(() => {
     if (!user) return;
     const unsub = onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'profiles', user?.uid), docSnap => {
       if (docSnap.exists()) {
-        const data = docSnap.data() as { nickname: string; avatar: string; referredBy?: string };
+        const data = docSnap.data() as { nickname: string; avatar: string; referredBy?: string; notifications?: NotificationPreferences };
         setProfile(data);
         localStorage.setItem('odesa_profile', JSON.stringify(data));
         setEditName(data.nickname);
         setEditAvatar(data.avatar);
+        if (data.notifications) setNotificationPrefs(data.notifications);
       } else {
         setEditName(`HERO_${getUserId().substring(0,8)}`);
       }
@@ -273,8 +321,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       snapshot => setRecruitCount(snapshot.size),
       error => console.warn('recruit count listener error:', error)
     );
+
+    const unsub6 = onSnapshot(
+      query(
+        collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'),
+        where('uid', '==', user.uid)
+      ),
+      snapshot => {
+        const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPlayerPrizes(all);
+      },
+      error => console.warn('player prizes listener error:', error)
+    );
     
-    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); };
+    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsub6(); };
   }, [user, venueId]);
 
     // Sync config with iframe when settings change
@@ -322,6 +382,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         setActiveGame(null);
       } else if (e.data?.type === 'ODESAPLAY_SCORE' || e.data?.type === 'win' || e.data?.type === 'gameOver') {
         setGamePlaying(false);
+        setTournamentPlayId(null);
         
         if (e.data?.type === 'ODESAPLAY_SCORE') {
           const score = Number(e.data.score);
@@ -354,6 +415,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           const currentRecord = leaderboards.find(l => l.id === recordId);
           const oldHighScore = currentRecord?.score || 0;
           
+          const alertStatus = (window as any).__alertStatus;
+          const alertId = alertStatus?.active ? (alertStatus?.lastUpdate || Date.now()) : null;
+
           const updateData: any = {
             uid: userId,
             nickname: profile.nickname || `HERO_${userId.substring(0,8)}`,
@@ -363,6 +427,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             playCount: increment(1)
           };
 
+          if (alertId) updateData.alertId = alertId;
+
+          if (tournamentPlayId) updateData.tournamentId = tournamentPlayId;
+
           if (!currentRecord || score > currentRecord.score) {
             updateData.score = score;
             updateData.timestamp = serverTimestamp();
@@ -371,6 +439,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards', recordId), updateData, { merge: true }).catch(err => {
             handleFirestoreError(err, OperationType.WRITE, `leaderboards/${recordId}`);
           });
+
+          setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId), {
+            lastPlayedAt: serverTimestamp()
+          }, { merge: true }).catch(console.error);
 
           (async () => {
             let currentXp = xp;
@@ -529,7 +601,15 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     };
   }, [activeGame]);
 
-
+  // Foreground push notification toast
+  useEffect(() => {
+    const unsub = onForegroundMessage((payload) => {
+      const title = payload.notification?.title || 'OdesaPlay';
+      const body = payload.notification?.body || '';
+      showToast(`${title}: ${body}`);
+    });
+    return unsub;
+  }, []);
 
   const saveProfile = async () => {
     if (!user) return;
@@ -605,9 +685,104 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     }
   };
 
+  // Auto-resolve tournament
+  const resolveTournament = async (tourney: VenueTournament) => {
+    if (tourney.resolved || tourney.status !== 'active') return;
+    const now = Date.now();
+    if (tourney.expiresAt?.toMillis() > now) return;
+    try {
+      const q = query(
+        collection(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards'),
+        where('tournamentId', '==', tourney.id),
+        orderBy('score', 'desc'),
+        limit(tourney.topWinners)
+      );
+      const snapshot = await getDocs(q);
+      const winners = snapshot.docs.map((d, i) => ({
+        uid: d.data().uid,
+        nickname: d.data().nickname || 'Hero',
+        avatar: d.data().avatar || '👤',
+        score: d.data().score || 0,
+        rank: i + 1,
+        claimCode: Math.floor(1000 + Math.random() * 9000).toString(),
+        claimExpiresAt: new Date(now).setHours(23, 59, 59, 999),
+        claimed: false,
+      }));
+      for (const w of winners) {
+        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'), {
+          code: w.claimCode,
+          venueId: tourney.venueId,
+          rewardType: tourney.prize,
+          gameTitle: tourney.gameId,
+          score: w.score,
+          tier: 0,
+          timestamp: serverTimestamp(),
+          expiresAt: w.claimExpiresAt,
+          uid: w.uid,
+          tournamentId: tourney.id,
+        });
+      }
+      await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'venueTournaments', tourney.id), {
+        resolved: true,
+        winners,
+      }, { merge: true });
+      if (winners.some(w => w.uid === getUserId())) {
+        const myWin = winners.find(w => w.uid === getUserId());
+        showToast(`🎉 ${t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName)}`);
+      }
+    } catch (e) {
+      console.error('Failed to resolve tournament', e);
+    }
+  };
 
+  // Rank tracking effect
+  useEffect(() => {
+    if (!expandedTournament || tournamentEntries.length === 0) {
+      previousRankRef.current = null;
+      return;
+    }
+    const playerIdx = tournamentEntries.findIndex(e => e.uid === getUserId());
+    const newRank = playerIdx >= 0 ? playerIdx + 1 : null;
+    const oldRank = previousRankRef.current;
+    previousRankRef.current = newRank;
 
+    if (oldRank === null || newRank === null) return;
+    if (newRank <= expandedTournament.topWinners && oldRank > expandedTournament.topWinners) {
+      triggerHaptic([100, 50, 100]);
+      showToast(`🎉 ${t.rankGained.replace('{rank}', String(newRank)).replace('{prize}', expandedTournament.prize)}`);
+    } else if (newRank > expandedTournament.topWinners && oldRank <= expandedTournament.topWinners) {
+      triggerHaptic([50]);
+      showToast(`⚠️ ${t.rankLost.replace('{rank}', String(newRank)).replace('{prize}', expandedTournament.prize)}`);
+    }
+  }, [tournamentEntries, expandedTournament]);
 
+  // Auto-resolve effect: check expanded tournament
+  useEffect(() => {
+    if (!expandedTournament) return;
+    const tourney = expandedTournament;
+    const checkAndResolve = () => {
+      if (tourney.expiresAt?.toMillis() <= Date.now() && !tourney.resolved) {
+        resolveTournament(tourney);
+      }
+    };
+    checkAndResolve();
+    const interval = setInterval(checkAndResolve, 30000);
+    return () => clearInterval(interval);
+  }, [expandedTournament]);
+
+  // Tournament end notification effect
+  useEffect(() => {
+    const userId = getUserId();
+    if (!userId) return;
+    for (const tourney of activeTournaments) {
+      if (!tourney.resolved || !tourney.winners || tourney.winners.length === 0) continue;
+      if (notifiedTournamentsRef.current.has(tourney.id)) continue;
+      if (tourney.winners.some(w => w.uid === userId)) {
+        notifiedTournamentsRef.current.add(tourney.id);
+        showToast(`🎉 ${t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName)}`);
+      }
+    }
+  }, [activeTournaments, t]);
 
   return (
     <div className="min-h-screen pb-32 overflow-x-hidden font-sans">
@@ -646,10 +821,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           >
             <header className="px-3 py-1.5 flex justify-between items-center border-b border-white/10 bg-[#0a0a0c]">
               <div className="flex items-center gap-4">
-                <button onClick={() => gamePlaying ? setShowQuitConfirm(true) : setActiveGame(null)} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
+                <button onClick={() => gamePlaying ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
                   <span className="text-sm">🏠</span> {t.quit}
                 </button>
-                {gamePlaying && /^bodi\d{2}$/i.test(profile.nickname) && (
+                {gamePlaying && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) && (
                   <button 
                     onClick={() => {
                       if ((window as any).Odesa?._triggerStop) {
@@ -723,12 +898,12 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 >
                   {t.cancel}
                 </button>
-                <button 
-                  onClick={() => { setShowQuitConfirm(false); setActiveGame(null); }} 
-                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
-                >
-                  {t.yesQuit}
-                </button>
+                  <button 
+                    onClick={() => { setShowQuitConfirm(false); setActiveGame(null); setTournamentPlayId(null); }} 
+                    className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
+                  >
+                    {t.yesQuit}
+                  </button>
               </div>
             </motion.div>
           </motion.div>
@@ -764,6 +939,47 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       <main className={`px-5 py-5 pt-32 sm:pt-24 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            {/* Active Tournaments */}
+            {activeTournaments.length > 0 && (
+              <section>
+                <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-400" /> {t.activeTournaments}
+                </h2>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x snap-mandatory scrollbar-hide">
+                  {activeTournaments.map(tourney => {
+                    const playerEntry = tournamentEntries.find(e => e.uid === getUserId());
+                    const playerRank = playerEntry ? tournamentEntries.findIndex(e => e.uid === getUserId()) + 1 : null;
+                    const isWinning = playerRank !== null && playerRank <= tourney.topWinners;
+                    return (
+                      <div
+                        key={tourney.id}
+                        onClick={() => setExpandedTournament(expandedTournament?.id === tourney.id ? null : tourney)}
+                        className="snap-start shrink-0 w-64 bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-5 rounded-[24px] border border-yellow-400/20 cursor-pointer active:scale-95 transition-transform"
+                      >
+                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest mb-1">{tourney.venueName}</div>
+                        <div className="text-lg font-black text-white leading-tight mb-2">{tourney.prize}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-3">
+                          {(() => {
+                            const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
+                            const m = Math.floor(diff / 60000);
+                            const s = Math.floor((diff % 60000) / 1000);
+                            return `${t.tournamentEndsIn.replace('{n}', `${m}:${s.toString().padStart(2, '0')}`)}`;
+                          })()}
+                        </div>
+                        {playerRank !== null && (
+                          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            isWinning ? 'bg-yellow-400/20 text-yellow-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            #{playerRank} {isWinning ? `🏆 ${t.winningPrize?.replace('{prize}', tourney.prize) || ''}` : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {['arcade', 'history', 'odesa', 'venues'].map(cat => (
               <section key={cat} className={gamesList.filter(g => g.cat === cat).length === 0 ? 'hidden' : ''}>
                 <div className="grid grid-cols-1 gap-4 pb-4">
@@ -798,7 +1014,100 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 </div>
               </section>
             ))}
-            
+
+            {/* Expanded Tournament Detail */}
+            <AnimatePresence>
+              {expandedTournament && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-slate-900/50 p-5 rounded-[24px] border border-white/5 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest">{expandedTournament.venueName}</div>
+                        <div className="text-2xl font-black text-white mt-1">{expandedTournament.prize}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                          🎮 {gamesList.find(g => g.id === expandedTournament.gameId)?.title[lang] || expandedTournament.gameId}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setExpandedTournament(null);
+                          setTournamentPlayId(null);
+                        }}
+                        className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Countdown */}
+                    <div className="text-center py-2">
+                      <div className="text-3xl font-black text-yellow-400 font-mono tabular-nums">
+                        {(() => {
+                          const diff = Math.max(0, expandedTournament.expiresAt?.toMillis() - Date.now());
+                          const m = Math.floor(diff / 60000);
+                          const s = Math.floor((diff % 60000) / 1000);
+                          return `${m}:${s.toString().padStart(2, '0')}`;
+                        })()}
+                      </div>
+                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{t.tournamentLeaderboard}</div>
+                    </div>
+
+                    {/* Play Button */}
+                    <button
+                      onClick={() => {
+                        const game = gamesList.find(g => g.id === expandedTournament.gameId);
+                        if (game) {
+                          setTournamentPlayId(expandedTournament.id);
+                          setActiveGame(game);
+                          requestFS();
+                        }
+                      }}
+                      className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl"
+                    >
+                      {t.playToWin}
+                    </button>
+
+                    {/* Leaderboard */}
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {tournamentEntries.map((e, i) => {
+                        const isPlayer = e.uid === getUserId();
+                        const isWinning = i < expandedTournament.topWinners;
+                        return (
+                          <div
+                            key={e.id}
+                            className={`flex items-center justify-between p-3 rounded-xl ${
+                              isPlayer
+                                ? 'bg-yellow-400/15 border border-yellow-400/30'
+                                : isWinning ? 'bg-yellow-400/5 border border-yellow-400/10' : 'bg-black/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-sm w-5 text-center font-black shrink-0">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-slate-600">#{i + 1}</span>}
+                              </span>
+                              <span className="text-base shrink-0">{e.avatar || '👤'}</span>
+                              <span className={`font-bold text-xs uppercase tracking-wider truncate ${isPlayer ? 'text-yellow-400' : 'text-white'}`}>
+                                {e.nickname}{isPlayer ? ` (${t.you})` : ''}
+                              </span>
+                            </div>
+                            <span className={`font-black font-mono shrink-0 ml-2 ${isPlayer ? 'text-yellow-400' : 'text-white'}`}>{e.score}</span>
+                          </div>
+                        );
+                      })}
+                      {tournamentEntries.length === 0 && (
+                        <div className="text-center py-8 text-slate-600 text-xs font-bold uppercase tracking-widest">{t.noEntries}</div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Gradient hint for scroll */}
             <div className="h-24 -mt-8 bg-gradient-to-t from-[#0a0a0c] to-transparent relative z-10" />
             
@@ -861,10 +1170,14 @@ onClick={() => {
                   onClick={() => setLeaderboardFilter('all')} 
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${leaderboardFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
                 >{t.allTime}</button>
+                <button 
+                  onClick={() => setLeaderboardFilter('alert')} 
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${leaderboardFilter === 'alert' ? 'bg-red-600 text-white' : 'text-slate-500'}`}
+                ><AlertTriangle className="w-3 h-3" /> ALERT</button>
               </div>
             </div>
             {gamesList.map(game => {
-              const filteredLb = leaderboardFilter === 'week' ? getWeekFilteredLeaderboards(leaderboards) : leaderboards;
+              const filteredLb = leaderboardFilter === 'week' ? getWeekFilteredLeaderboards(leaderboards) : leaderboardFilter === 'alert' ? leaderboards.filter(l => l.alertId) : leaderboards;
               const records = filteredLb.filter(l => l.gameId === game.id).sort((a, b) => b.score - a.score).slice(0, 21);
               if (records.length === 0) return null;
               const userRecord = records.find(r => r.uid === getUserId());
@@ -950,7 +1263,7 @@ onClick={() => {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black uppercase italic tracking-tight">{t.profile}</h2>
               <div className="flex gap-2">
-                {/^bodi\d$/i.test(profile.nickname) && (
+                {['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) && (
                   <>
                     <button onClick={() => setView('admin')} className="p-2 bg-slate-900 rounded-full text-purple-400">
                       <Activity className="w-5 h-5" />
@@ -1041,7 +1354,7 @@ onClick={() => {
                     return (
                       <div key={r.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center shadow-xl">
                         <div className="flex flex-col">
-                          <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
+                          <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5 text-white">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
                           <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">
                             {getTimeAgo(r.timestamp, lang)} • {r.playCount || 1} PLAYS • RANK: {rank}/{totalPlayers}
                           </span>
@@ -1125,6 +1438,106 @@ onClick={() => {
                     );
                   })()}
                 </div>
+
+                {/* Notification Settings */}
+                <div className="mt-8 text-left space-y-4">
+                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">{t.notifications}</h3>
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-3 shadow-xl">
+                    {([
+                      { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },
+                      { key: 'gameReminders', label: t.gameReminders, desc: t.gameRemindersDesc },
+                      { key: 'venueSpecials', label: t.venueSpecials, desc: t.venueSpecialsDesc },
+                    ] as const).map(({ key, label, desc }) => {
+                      const enabled = notificationPrefs[key];
+                      return (
+                        <div key={key} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Bell className={`w-4 h-4 ${enabled ? 'text-yellow-400' : 'text-slate-600'}`} />
+                            <div>
+                              <div className="text-xs font-bold uppercase tracking-widest text-white">{label}</div>
+                              <div className="text-[9px] text-slate-500 uppercase font-black tracking-wider">{desc}</div>
+                            </div>
+                          </div>
+                          <button
+                            disabled={isRequestingNotif}
+                            onClick={async () => {
+                              const newPrefs = { ...notificationPrefs, [key]: !enabled };
+                              if (newPrefs[key] && !newPrefs.fcmToken) {
+                                setIsRequestingNotif(true);
+                                try {
+                                  const token = await requestFcmToken();
+                                  if (!token) {
+                                    showToast('Notification permission denied');
+                                    setIsRequestingNotif(false);
+                                    return;
+                                  }
+                                  newPrefs.fcmToken = token;
+                                  newPrefs.fcmTokenUpdatedAt = Date.now();
+                                } catch (e) {
+                                  showToast('Notification error: ' + (e instanceof Error ? e.message : 'unknown'));
+                                  setIsRequestingNotif(false);
+                                  return;
+                                }
+                                setIsRequestingNotif(false);
+                              }
+                              setNotificationPrefs(newPrefs);
+                              if (user) {
+                                setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'profiles', user.uid), {
+                                  notifications: newPrefs,
+                                  updatedAt: serverTimestamp()
+                                }, { merge: true }).catch(console.error);
+                              }
+                            }}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-slate-800 text-slate-500'} ${isRequestingNotif ? 'opacity-50' : ''}`}
+                          >
+                            {enabled ? 'ON' : 'OFF'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* My Prizes */}
+                  <div className="mt-8 text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}
+                    </h3>
+                    {playerPrizes.length === 0 ? (
+                      <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noPrizes}</div>
+                    ) : (
+                    <div className="space-y-3">
+                      {[...playerPrizes].sort((a: any, b: any) => {
+                        const ta = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || 0);
+                        const tb = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
+                        return tb - ta;
+                      }).map(p => {
+                        const expired = p.expiresAt < Date.now();
+                        const redeemed = p.redeemed;
+                        const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
+                        const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+                        return (
+                          <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                            <div>
+                              <div className="text-sm font-black text-yellow-400">{p.rewardType}</div>
+                              <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
+                            </div>
+                            <div className="text-right">
+                              {p.code && !expired && !redeemed && (
+                                <div className="text-lg font-black text-green-400 font-mono tracking-widest">{p.code}</div>
+                              )}
+                              <div className={`text-[9px] font-black uppercase tracking-widest ${
+                                redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
+                              }`}>
+                                {redeemed ? t.claimRedeemed : expired ? t.claimExpired : t.claimCode.replace('{code}', p.code || '')}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    )}
+                  </div>
 
                 {/* Music Settings */}
                 <div className="mt-8 text-left space-y-4">

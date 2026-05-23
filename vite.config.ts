@@ -8,6 +8,9 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       manifest: {
         name: 'ODESA ГРА',
         short_name: 'ODESA ГРА',
@@ -21,19 +24,9 @@ export default defineConfig(() => {
           {src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml'},
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png}'],
-        navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /\.(mp3|ogg)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'audio',
-              expiration: {maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30},
-            },
-          },
-        ],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
     })],
     resolve: {
@@ -48,6 +41,9 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api': 'http://localhost:3000',
+      },
     },
     build: {
       rollupOptions: {

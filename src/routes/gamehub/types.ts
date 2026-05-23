@@ -46,6 +46,8 @@ export interface Claim {
   expiresAt: number;
   venue?: string;
   uid: string;
+  redeemed?: boolean;
+  redeemedAt?: any;
 }
 
 export interface PlayerStats {
@@ -60,4 +62,37 @@ export interface PlayerStats {
   allVenuesUnlocked: boolean;
   beatHighScoreBy50: boolean;
   highScoreGames: number;
+}
+
+export interface TournamentWinner {
+  uid: string;
+  nickname: string;
+  avatar: string;
+  score: number;
+  rank: number;
+  claimCode: string;
+  claimExpiresAt: number;
+  claimed: boolean;
+}
+
+export interface VenueTournament {
+  id: string;
+  venueId: string;
+  venueName: string;
+  gameId: string;
+  prize: string;
+  topWinners: number;
+  startedAt: any;
+  expiresAt: any;
+  status: 'active' | 'ended';
+  resolved: boolean;
+  winners?: TournamentWinner[];
+}
+
+export interface NotificationPreferences {
+  droneAlerts: boolean;
+  gameReminders: boolean;
+  venueSpecials: boolean;
+  fcmToken?: string;
+  fcmTokenUpdatedAt?: number;
 }

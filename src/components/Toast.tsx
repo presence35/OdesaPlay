@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 let showToastFn: ((msg: string) => void) | null = null;
 
@@ -8,22 +8,35 @@ export function showToast(message: string) {
 
 export default function Toast() {
   const [message, setMessage] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const dismiss = useCallback(() => {
+    clearTimeout(timerRef.current);
+    setMessage(null);
+  }, []);
 
   const show = useCallback((msg: string) => {
+    clearTimeout(timerRef.current);
     setMessage(msg);
-    setTimeout(() => setMessage(null), 2000);
-  }, []);
+    timerRef.current = setTimeout(dismiss, 2000);
+  }, [dismiss]);
 
   useEffect(() => {
     showToastFn = show;
-    return () => { showToastFn = null; };
+    return () => {
+      showToastFn = null;
+      clearTimeout(timerRef.current);
+    };
   }, [show]);
 
   if (!message) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
-      <div className="bg-yellow-400 text-black px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl animate-bounce">
+    <div className="fixed top-4 left-0 right-0 z-[200] flex justify-center pointer-events-none">
+      <div
+        className="bg-yellow-400 text-black px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl animate-bounce pointer-events-auto cursor-pointer"
+        onClick={dismiss}
+      >
         {message}
       </div>
     </div>

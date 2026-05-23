@@ -55,10 +55,15 @@ service cloud.firestore {
         && request.resource.data.nickname.size() <= 15
         && request.resource.data.nickname.size() >= 3;
       allow update: if isOwner(doc)
-        && (!request.resource.data.keys().has('nickname')
-          || (request.resource.data.nickname is string
-            && request.resource.data.nickname.size() <= 15
-            && request.resource.data.nickname.size() >= 3));
+        && (
+          (!request.resource.data.keys().has('nickname')
+            || (request.resource.data.nickname is string
+              && request.resource.data.nickname.size() <= 15
+              && request.resource.data.nickname.size() >= 3))
+          ||
+          (request.resource.data.keys().hasOnly(['notifications'])
+            && request.resource.data.notifications is map)
+        );
       allow delete: if false; // profiles are never deleted
 
       // ─── Username Locks ──────────────────────────
@@ -74,7 +79,7 @@ service cloud.firestore {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasAny(['uid', 'nickname', 'avatar', 'gameId', 'score', 'timestamp', 'venueId', 'playCount'])
+        && request.resource.data.keys().hasAny(['uid', 'nickname', 'avatar', 'gameId', 'score', 'timestamp', 'venueId', 'playCount', 'alertId'])
         && isValidString(request.resource.data.nickname, 15)
         && request.resource.data.gameId in ['shooter', 'drones', 'marshrutka', 'trivia']
         && isValidScore(request.resource.data.score);
@@ -160,6 +165,16 @@ service cloud.firestore {
       // ─── Map Config ──────────────────────────────
       allow read: if isAuth();
       allow write: if isAdmin() || isAdminByNickname();
+
+      // ─── Venue Tournaments ───────────────────────
+      allow read: if isAuth();
+      allow create: if isAdmin() || isAdminByNickname();
+      allow update: if isAdmin() || isAdminByNickname()
+        || (resource.data.resolved == false
+            && request.resource.data.resolved == true
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['resolved', 'winners']));
+      allow delete: if isAdmin() || isAdminByNickname();
 
       // ─── Catch-all: deny unknown collections ─────
       allow read, write: if false;

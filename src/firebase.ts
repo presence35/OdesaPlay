@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -8,6 +9,27 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+const VAPID_KEY = 'BPijC0ZRLR51O0MA1TKswPAmdjQDuhLM_XP5LmJQQuJQY2eK4M9arkXOwq6DpyHoWsQytX04r0x-qMI82m_dcLE';
+
+export const requestFcmToken = async (): Promise<string | null> => {
+  try {
+    const messaging = getMessaging(app);
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return null;
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    return token;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[FCM] requestFcmToken failed:', msg);
+    throw new Error(msg);
+  }
+};
+
+export const onForegroundMessage = (cb: (payload: any) => void) => {
+  const messaging = getMessaging(app);
+  return onMessage(messaging, cb);
+};
 
 export const getUserId = (): string => {
   if (auth.currentUser?.uid) return auth.currentUser.uid;

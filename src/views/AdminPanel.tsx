@@ -204,6 +204,9 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   </button>
                 </div>
 
+                {/* Air Raid Alert Monitor */}
+                <AirRaidMonitor />
+
                 <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   <StatCard icon={<Users className="w-20 h-20 text-blue-500/10" />} value={stats.totalUsers || 847} label={t.totalUsers} decorator={<Users className="w-4 h-4 text-blue-400" />} />
                   <StatCard icon={<MapPin className="w-20 h-20 text-emerald-500/10" />} value={stats.totalCheckins || 628} label={t.totalCheckins} decorator={<MapPin className="w-4 h-4 text-emerald-400" />} />
@@ -535,6 +538,76 @@ export default function AdminPanel({ lang }: { lang: Language }) {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function AirRaidMonitor() {
+  const [state, setState] = useState<'loading' | 'active' | 'clear' | 'error'>('loading');
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [lastCheck, setLastCheck] = useState<string>('—');
+
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/alert-status');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!mounted) return;
+        setAlerts(data.activeAlerts ?? []);
+        setState(data.active ? 'active' : 'clear');
+        setLastCheck(new Date().toLocaleTimeString());
+      } catch {
+        if (mounted) setState('error');
+      }
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  return (
+    <div className={`border rounded-3xl p-5 mb-6 transition-colors ${
+      state === 'active' ? 'bg-red-900/30 border-red-500/40' :
+      state === 'error' ? 'bg-yellow-900/30 border-yellow-500/40' :
+      'bg-slate-900/50 border-white/5'
+    }`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`w-4 h-4 rounded-full ${
+            state === 'active' ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse' :
+            state === 'error' ? 'bg-yellow-500' :
+            state === 'clear' ? 'bg-emerald-500' :
+            'bg-slate-600'
+          }`} />
+          <div>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-black uppercase tracking-wider">Odesa Air Raid</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                state === 'active' ? 'bg-red-500/20 text-red-400' :
+                state === 'error' ? 'bg-yellow-500/20 text-yellow-400' :
+                state === 'clear' ? 'bg-emerald-500/20 text-emerald-400' :
+                'bg-slate-700 text-slate-400'
+              }`}>
+                {state === 'active' ? 'ACTIVE' : state === 'clear' ? 'CLEAR' : state === 'error' ? 'ERROR' : '...'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">
+              Source: siren.pp.ua • Last checked: {lastCheck}
+            </p>
+          </div>
+        </div>
+        {state === 'active' && alerts.length > 0 && (
+          <div className="flex items-center gap-2">
+            {alerts.map((a: any, i: number) => (
+              <span key={i} className="px-2 py-1 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-wider">
+                {a.type}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
