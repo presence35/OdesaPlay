@@ -15,7 +15,9 @@ window.Odesa = (function() {
     
     let eventListeners = {
         'config': [],
-        'stop': []
+        'stop': [],
+        'pause': [],
+        'resume': []
     };
 
     // Listen to messages from dashboard
@@ -25,6 +27,10 @@ window.Odesa = (function() {
             eventListeners['config'].forEach(cb => cb(config));
         } else if (e.data?.type === 'ODESAPLAY_STOP') {
             eventListeners['stop'].forEach(cb => cb());
+        } else if (e.data?.type === 'ODESAPLAY_PAUSE') {
+            eventListeners['pause'].forEach(cb => cb());
+        } else if (e.data?.type === 'ODESAPLAY_RESUME') {
+            eventListeners['resume'].forEach(cb => cb());
         }
     });
 
@@ -61,6 +67,12 @@ window.Odesa = (function() {
         // Listen for stop request from dashboard
         onStop: function(callback) {
             eventListeners['stop'].push(callback);
+        },
+        onPause: function(callback) {
+            eventListeners['pause'].push(callback);
+        },
+        onResume: function(callback) {
+            eventListeners['resume'].push(callback);
         },
         _removeStopListener: function(callback) {
             const idx = eventListeners['stop'].indexOf(callback);

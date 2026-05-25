@@ -5,15 +5,18 @@ import { TRANSLATIONS, Lang } from './translations';
 import { motion, AnimatePresence } from 'motion/react';
 import * as PIXI from 'pixi.js';
 import { getAudioContext, resumeAudioContext } from '../../utils/audioContext';
+import { ObjectPool } from '../../utils/objectPool';
 
 type GameState = 'menu' | 'playing' | 'gameover';
-interface Enemy { id: number; x: number; y: number; vx: number; vy: number; width: number; height: number; }
+interface Enemy { id: number; x: number; y: number; vx: number; vy: number; width: number; height: number; sprite: PIXI.Sprite; }
 interface Missile {
   id: number; startX: number; startY: number; targetX: number; targetY: number;
   x: number; y: number; vx: number; vy: number; speed: number;
   state: 'flying' | 'exploding'; radius: number; maxRadius: number; explodeSpeed: number; hits?: number;
+  gfx: PIXI.Graphics;
 }
 interface Particle { id: string; x: number; y: number; vx: number; vy: number; life: number; decay: number; color: string; }
+interface FloatingText { id: string; text: string; x: number; y: number; life: number; textObj: PIXI.Text; }
 
 let _soundEnabled = true;
 let audioCtx: AudioContext | null = null;
@@ -129,7 +132,7 @@ export default function App() {
     lastTime: 0, startTime: 0, nextSpawn: 0, enemySpeedMultiplier: 1, missileCount: 0, enemyCount: 0,
     screenShake: 0, muted: false, difficulty: 'easy' as 'easy'|'hard', currentLang: 'uk' as Lang,
     flashRed: 0, waveFlashTimer: 2000, lowAmmoTimer: 0,
-    floatingTexts: [] as { id: string, text: string, x: number, y: number, life: number }[],
+    floatingTexts: [] as FloatingText[],
     stars: Array.from({ length: 60 }, () => ({
       x: Math.random(), y: Math.random(), size: Math.random() * 1.5 + 0.5, alpha: Math.random() * 0.8 + 0.2
     })),
@@ -185,11 +188,14 @@ export default function App() {
     overlay: new PIXI.Container(),
     ui: new PIXI.Container()
   });
-  const visualsRef = useRef(new Map<string, any>());
-  const textsRef = useRef(new Map<string, PIXI.Text>());
   
   // Drone texture cache
   const droneTextureRef = useRef<PIXI.Texture | null>(null);
+  
+  // Object pools
+  const enemyPoolRef = useRef<ObjectPool<PIXI.Sprite> | null>(null);
+  const missilePoolRef = useRef<ObjectPool<PIXI.Graphics> | null>(null);
+  const textPoolRef = useRef<ObjectPool<PIXI.Text> | null>(null);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
@@ -234,15 +240,22 @@ export default function App() {
       
       droneTextureRef.current = app.renderer.generateTexture(droneGfx);
 
-      // Stars
-      const starGfx = new PIXI.Graphics();
-      layers.stars.addChild(starGfx);
+      const w = app.screen.width;
+      const h = app.screen.height;
 
-      // Ground
-      const groundGfx = new PIXI.Graphics();
-      layers.bg.addChild(groundGfx);
+      // Pre-render static background (stars + ground) to texture — eliminates 62 redraw calls/frame
+      const bgGfx = new PIXI.Graphics();
+      bgGfx.rect(0, h - 60, w, 60).fill({ color: 0xeab308 });
+      for (const star of game.current.stars) {
+        bgGfx.circle(star.x * w, star.y * (h - 60), star.size).fill({ color: 0xffffff, alpha: star.alpha });
+      }
+      const bgContainer = new PIXI.Container();
+      bgContainer.addChild(bgGfx);
+      const bgTexture = PIXI.RenderTexture.create({ width: w, height: h });
+      app.renderer.render({ container: bgContainer, target: bgTexture });
+      layers.bg.addChild(new PIXI.Sprite(bgTexture));
 
-      // Truck
+      // Truck (kept as Graphics — only ~20 draw calls per frame)
       const truckContainer = new PIXI.Container();
       const gunMount = new PIXI.Graphics();
       truckContainer.addChild(gunMount);
@@ -273,6 +286,26 @@ export default function App() {
       const lowAmmoText = new PIXI.Text({ text: '', style: { fill: 0xffffff, fontSize: 20, fontWeight: '900', align: 'center' }});
       lowAmmoText.anchor.set(0.5);
       layers.ui.addChild(lowAmmoPill, lowAmmoText);
+
+      // Object pools (eliminate GC churn from create/destroy cycles)
+      enemyPoolRef.current = new ObjectPool<PIXI.Sprite>(
+        () => { const s = new PIXI.Sprite(droneTextureRef.current!); s.anchor.set(0.5); layers.entity.addChild(s); s.visible = false; return s; },
+        () => {},
+        30
+      );
+      missilePoolRef.current = new ObjectPool<PIXI.Graphics>(
+        () => { const g = new PIXI.Graphics(); layers.entity.addChild(g); g.visible = false; return g; },
+        (g) => g.clear(),
+        20
+      );
+      textPoolRef.current = new ObjectPool<PIXI.Text>(
+        () => {
+          const t = new PIXI.Text({ text: '', style: { fill: 0xef4444, fontSize: 24, fontWeight: '700', dropShadow: { blur: 4 } }});
+          t.anchor.set(0.5); layers.overlay.addChild(t); t.visible = false; return t;
+        },
+        () => {},
+        10
+      );
 
       const spawnExplosion = (x: number, y: number, color: string, count: number) => {
         for (let i = 0; i < count; i++) {
@@ -322,6 +355,7 @@ export default function App() {
           x: startX, y: startY,
           vx: (dx / dist) * speed, vy: (dy / dist) * speed,
           speed, state: 'flying', radius: 5, maxRadius: 50, explodeSpeed: 2.5, hits: 0,
+          gfx: missilePoolRef.current!.acquire(),
         });
       };
 
@@ -363,7 +397,8 @@ export default function App() {
               id: g.enemyCount++,
               x: Math.random() * (w - width) + width / 2, y: -height,
               vx: (Math.random() - 0.5) * 1.0, vy: (Math.random() * 1.5 + 1.0) * speedMult,
-              width, height
+              width, height,
+              sprite: enemyPoolRef.current!.acquire(),
             });
             g.dronesSpawned++;
             
@@ -398,7 +433,7 @@ export default function App() {
           } else if (m.state === 'exploding') {
             m.radius += m.explodeSpeed;
             if (m.radius > m.maxRadius) m.explodeSpeed = -2;
-            if (m.radius <= 0) g.missiles.splice(i, 1);
+            if (m.radius <= 0) { missilePoolRef.current!.release(m.gfx); g.missiles.splice(i, 1); }
           }
         }
 
@@ -414,12 +449,13 @@ export default function App() {
               g.health -= 20; g.flashRed = 1.0; g.screenShake = 30;
               playSound('hit', g.muted); triggerHaptic('heavy');
               spawnExplosion(e.x, e.y, '#ef4444', 30);
-              g.floatingTexts.push({ id: Math.random().toString(), text: "-10 🚀", x: e.x, y: e.y, life: 1500 });
+              g.floatingTexts.push({ id: Math.random().toString(), text: "-10 🚀", x: e.x, y: e.y, life: 1500, textObj: textPoolRef.current!.acquire() });
             } else {
               g.health -= 10; g.screenShake = 15;
               playSound('hit', g.muted); triggerHaptic('heavy');
               spawnExplosion(e.x, e.y, '#ef4444', 15);
             }
+            enemyPoolRef.current!.release(e.sprite);
             g.enemies.splice(i, 1);
             continue;
           }
@@ -434,7 +470,7 @@ export default function App() {
                 m.hits = (m.hits || 0) + 1;
                 if (m.hits >= 3) {
                   g.score += 1;
-                  g.floatingTexts.push({ id: Math.random().toString(), text: `🔥 ${TRANSLATIONS[g.currentLang].combo || "Combo"} X${m.hits}!`, x: e.x, y: e.y - 20, life: 1000 });
+                  g.floatingTexts.push({ id: Math.random().toString(), text: `🔥 ${TRANSLATIONS[g.currentLang].combo || "Combo"} X${m.hits}!`, x: e.x, y: e.y - 20, life: 1000, textObj: textPoolRef.current!.acquire() });
                 }
                 break;
               }
@@ -445,6 +481,7 @@ export default function App() {
             const accuracy = Math.max(0, 1 - (accuracyDist / (maxExplodeRadius || 40)));
             playSound('explosion', g.muted, 0.2 + (accuracy * 1.8));
             triggerHaptic('light'); spawnExplosion(e.x, e.y, '#fb923c', 20); 
+            enemyPoolRef.current!.release(e.sprite);
             g.enemies.splice(i, 1);
           }
         }
@@ -458,7 +495,7 @@ export default function App() {
         for (let i = g.floatingTexts.length - 1; i >= 0; i--) {
           const ft = g.floatingTexts[i];
           ft.y -= (dt / 1000) * 80; ft.life -= dt;
-          if (ft.life <= 0) g.floatingTexts.splice(i, 1);
+          if (ft.life <= 0) { textPoolRef.current!.release(ft.textObj); g.floatingTexts.splice(i, 1); }
         }
 
         if (g.flashRed > 0) g.flashRed = Math.max(0, g.flashRed - dt / 500);
@@ -479,114 +516,60 @@ export default function App() {
           app.stage.x = 0; app.stage.y = 0;
         }
 
-        // Static rendering updates
-        groundGfx.clear();
-        groundGfx.rect(0, h - 60, w, 60).fill({ color: 0xeab308 });
-
-        starGfx.clear();
-        for (const star of g.stars) {
-          starGfx.circle(star.x * w, star.y * (h - 60), star.size).fill({ color: 0xffffff, alpha: star.alpha });
-        }
-
+        // Red flash overlay
         flashRedGfx.clear();
         if (g.flashRed > 0) {
           flashRedGfx.rect(0, 0, w, h).fill({ color: 0xef4444, alpha: g.flashRed * 0.5 });
         }
 
-        // Truck Redraw
+        // Truck
         truckContainer.x = w / 2;
         truckContainer.y = h - 30;
         truckContainer.scale.set(0.7);
         gunMount.clear();
-        // Tires
         gunMount.circle(-45, 25, 12).circle(35, 25, 12).fill({ color: 0x000000 });
         gunMount.circle(-45, 25, 6).circle(35, 25, 6).fill({ color: 0x9ca3af });
-        // Body
         gunMount.moveTo(-65, 5).lineTo(-65, -5).lineTo(-40, -15).lineTo(-15, -15).lineTo(-15, 5).fill({ color: 0x0057b7 });
         gunMount.rect(-65, 5, 120, 10).fill({ color: 0x0057b7 });
         gunMount.rect(-65, 15, 120, 10).fill({ color: 0xFFDD00 });
-        // Window
         gunMount.moveTo(-58, 0).lineTo(-40, -10).lineTo(-20, -10).lineTo(-20, 0).fill({ color: 0x93c5fd });
-        // Gun Mount
         const gunX = 25;
         gunMount.moveTo(gunX - 15, 5).lineTo(gunX - 10, -5).lineTo(gunX + 10, -5).lineTo(gunX + 15, 5).fill({ color: 0x1f2937 });
         gunMount.moveTo(gunX - 12, -5).lineTo(gunX - 18, -18).lineTo(gunX + 18, -18).lineTo(gunX + 12, -5).fill({ color: 0x374151 });
         gunMount.rect(gunX - 6, -35, 3, 20).rect(gunX + 3, -35, 3, 20).fill({ color: 0x111827 });
         gunMount.rect(gunX - 7, -38, 5, 4).rect(gunX + 2, -38, 5, 4).fill({ color: 0x111827 });
 
-        // Entities Sync
-        const currentIds = new Set<string>();
+        // Enemies (pooled sprites — direct ref, no Map lookup)
+        g.enemies.forEach(e => { e.sprite.x = e.x; e.sprite.y = e.y; });
 
-        // Enemies
-        g.enemies.forEach(e => {
-          const id = `e_${e.id}`;
-          currentIds.add(id);
-          let s = visualsRef.current.get(id) as PIXI.Sprite;
-          if (!s) {
-            s = new PIXI.Sprite(droneTextureRef.current!);
-            s.anchor.set(0.5, 0.5); // Texture center
-            layers.entity.addChild(s);
-            visualsRef.current.set(id, s);
-          }
-          s.x = e.x; s.y = e.y;
-        });
-
-        // Missiles (Graphics)
+        // Missiles (pooled Graphics — direct ref)
         g.missiles.forEach(m => {
-          const id = `m_${m.id}`;
-          currentIds.add(id);
-          let gfx = visualsRef.current.get(id) as PIXI.Graphics;
-          if (!gfx) {
-            gfx = new PIXI.Graphics();
-            layers.entity.addChild(gfx);
-            visualsRef.current.set(id, gfx);
-          }
-          gfx.clear();
+          m.gfx.clear();
           if (m.state === 'flying') {
-            gfx.circle(m.x, m.y, 3).fill({ color: 0xfef08a });
-            gfx.moveTo(m.x, m.y).lineTo(m.x - m.vx * 1.5, m.y - m.vy * 1.5).stroke({ color: 0xf97316, width: 2 });
+            m.gfx.circle(m.x, m.y, 3).fill({ color: 0xfef08a });
+            m.gfx.moveTo(m.x, m.y).lineTo(m.x - m.vx * 1.5, m.y - m.vy * 1.5).stroke({ color: 0xf97316, width: 2 });
           } else if (m.state === 'exploding') {
-            gfx.circle(m.x, m.y, m.radius * 0.8).fill({ color: 0xfde047, alpha: 0.8 });
-            gfx.circle(m.x, m.y, m.radius).fill({ color: 0xef4444, alpha: 0.5 });
+            m.gfx.circle(m.x, m.y, m.radius * 0.8).fill({ color: 0xfde047, alpha: 0.8 });
+            m.gfx.circle(m.x, m.y, m.radius).fill({ color: 0xef4444, alpha: 0.5 });
           }
         });
 
         // Particles (batched single Graphics)
         let pGfx = layers.particles.children[0] as PIXI.Graphics | undefined;
-        if (!pGfx) {
-          pGfx = new PIXI.Graphics();
-          layers.particles.addChild(pGfx);
-        }
+        if (!pGfx) { pGfx = new PIXI.Graphics(); layers.particles.addChild(pGfx); }
         pGfx.clear();
         g.particles.forEach(p => {
           pGfx.rect(p.x - 2, p.y - 2, 4, 4).fill({ color: p.color as any, alpha: Math.max(0, p.life) });
         });
 
-        // Floating texts
+        // Floating texts (pooled — direct ref)
         g.floatingTexts.forEach(ft => {
-          const id = `ft_${ft.id}`;
-          currentIds.add(id);
-          let t = textsRef.current.get(id);
-          if (!t) {
-            t = new PIXI.Text({ text: ft.text, style: { fill: 0xef4444, fontSize: 24, fontWeight: '700', dropShadow: { blur: 4 } }});
-            t.anchor.set(0.5);
-            layers.overlay.addChild(t);
-            textsRef.current.set(id, t);
-          }
-          t.x = ft.x; t.y = ft.y; t.alpha = Math.max(0, ft.life / 1500);
-          t.text = ft.text;
+          ft.textObj.x = ft.x; ft.textObj.y = ft.y;
+          ft.textObj.alpha = Math.max(0, ft.life / 1500);
+          ft.textObj.text = ft.text;
         });
 
-        // Cleanup
-        for (const [id, c] of visualsRef.current.entries()) {
-          if (!currentIds.has(id)) { c.destroy(); visualsRef.current.delete(id); }
-        }
-        for (const [id, t] of textsRef.current.entries()) {
-          if (!currentIds.has(id)) { t.destroy(); textsRef.current.delete(id); }
-        }
-
-        // UI Updates
-        // Flag
+        // UI
         ruFlag.clear();
         ruFlag.rect(16, 22, 27, 6).fill({ color: 0xffffff });
         ruFlag.rect(16, 28, 27, 6).fill({ color: 0x0039a6 });
@@ -597,14 +580,12 @@ export default function App() {
         uiScore.x = 16 + 27 + 12;
         uiScore.y = 15;
 
-        // Ammo
         if (Math.floor(g.ammo) <= 5 && Math.floor(g.ammo) > 0) uiAmmo.style.fill = 0xef4444;
         else uiAmmo.style.fill = 0x0057b7;
         uiAmmo.text = `🚀 ${Math.floor(g.ammo)}`;
         uiAmmo.x = w - uiAmmo.width - 16;
         uiAmmo.y = h - 50;
 
-        // Ammo Out / Warning
         if (Math.floor(g.ammo) === 0) {
           outOfAmmoText.visible = true;
           outOfAmmoText.text = TRANSLATIONS[g.currentLang].outOfAmmo;
@@ -627,14 +608,12 @@ export default function App() {
           lowAmmoText.x = w / 2; lowAmmoText.y = h / 2;
         }
 
-        // Wave text
         if (g.waveFlashTimer > 0) {
           waveText.visible = waveSub.visible = true;
           const a = Math.min(1, g.waveFlashTimer / 500);
           waveText.alpha = a; waveSub.alpha = a;
           waveText.text = `${TRANSLATIONS[g.currentLang].wave} ${g.wave}`;
           waveText.x = w / 2; waveText.y = h / 2 - 20;
-          
           waveSub.x = w / 2; waveSub.y = h / 2 + 30;
           if (g.wave === 1) waveSub.text = TRANSLATIONS[g.currentLang].tapDroneToSaveCity;
           else if (g.wave === 4) waveSub.text = TRANSLATIONS[g.currentLang].warnRelatives;
@@ -644,7 +623,6 @@ export default function App() {
           waveText.visible = waveSub.visible = false;
         }
 
-        // Health Bar
         const hpWidth = Math.min(100, w / 3);
         const hpX = w - hpWidth - 16, hpY = 22;
         uiHealthBar.clear();
@@ -659,8 +637,8 @@ export default function App() {
         updatePhysics(performance.now());
         syncVisuals();
       });
-      
-      // Start loop tracking
+      app.ticker.maxFPS = 60;
+
       game.current.lastTime = performance.now();
 
     })();
@@ -670,6 +648,9 @@ export default function App() {
       if (app.renderer) {
         app.destroy(true, { children: true });
       }
+      enemyPoolRef.current = null;
+      missilePoolRef.current = null;
+      textPoolRef.current = null;
     };
   }, [gameState]);
 

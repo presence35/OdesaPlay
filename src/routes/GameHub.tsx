@@ -58,6 +58,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
+
+  const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || profile.nickname?.toLowerCase() === 'bodi#';
   
   const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume } = useAudio();
 
@@ -107,6 +109,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [timeLeft, setTimeLeft] = useState(300);
 
   const [gamePlaying, setGamePlaying] = useState(false);
+  const [gameActive, setGameActive] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [autoStartedMusic, setAutoStartedMusic] = useState(false);
 
@@ -126,23 +129,22 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
   // Tournament
   const { tournaments: activeTournaments } = useActiveTournaments();
-  const [expandedTournament, setExpandedTournament] = useState<VenueTournament | null>(null);
   const [tournamentPlayId, setTournamentPlayId] = useState<string | null>(null);
-  const { entries: tournamentEntries } = useTournamentLeaderboard(expandedTournament?.id || tournamentPlayId);
-  const previousRankRef = useRef<number | null>(null);
+  const { entries: tournamentEntries } = useTournamentLeaderboard(tournamentPlayId);
   const notifiedTournamentsRef = useRef<Set<string>>(new Set());
   const [playerPrizes, setPlayerPrizes] = useState<any[]>([]);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (activeTournaments.length === 0 && !expandedTournament) return;
+    if (activeTournaments.length === 0) return;
     const i = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(i);
-  }, [activeTournaments.length, !!expandedTournament]);
+  }, [activeTournaments.length]);
 
   useEffect(() => {
     if (!activeGame) {
       setGamePlaying(false);
+      setGameActive(false);
       setShowQuitConfirm(false);
       if (autoStartedMusic) {
         stopMusic();
@@ -372,6 +374,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         // Removed legacy iframe sync
       } else if (e.data?.type === 'ODESAPLAY_GAME_STARTED') {
         setGamePlaying(true);
+        setGameActive(true);
         if (autoPlayMusic && !musicEnabled) {
           setAutoStartedMusic(true);
           setMusicEnabled(true);
@@ -382,6 +385,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         setActiveGame(null);
       } else if (e.data?.type === 'ODESAPLAY_SCORE' || e.data?.type === 'win' || e.data?.type === 'gameOver') {
         setGamePlaying(false);
+        setGameActive(false);
         setTournamentPlayId(null);
         
         if (e.data?.type === 'ODESAPLAY_SCORE') {
@@ -429,7 +433,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
           if (alertId) updateData.alertId = alertId;
 
-          if (tournamentPlayId) updateData.tournamentId = tournamentPlayId;
+          if (tournamentPlayId) {
+            updateData.tournamentId = tournamentPlayId;
+            updateData.tournamentScore = score;
+          }
 
           if (!currentRecord || score > currentRecord.score) {
             updateData.score = score;
@@ -510,7 +517,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-    }, [gamesList, venueConfig, lang, venueId, user, sfxEnabled, musicEnabled, autoStartedMusic, leaderboards, profile, activeGame, xp, prevScores, streak, achievements, RESTAURANTS]);
+    }, [gamesList, venueConfig, lang, venueId, user, sfxEnabled, musicEnabled, autoStartedMusic, leaderboards, profile, activeGame, xp, prevScores, streak, achievements, RESTAURANTS, tournamentPlayId]);
 
   useEffect(() => {
     if (!activeReward) return;
@@ -561,18 +568,30 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
+    const triggerPause = () => (window as any).Odesa?._triggerPause?.();
+    const triggerResume = () => (window as any).Odesa?._triggerResume?.();
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         updateDoc(sessionRef, { active: false }).catch(console.error);
+        triggerPause();
       } else if (document.visibilityState === 'visible') {
         updateDoc(sessionRef, { active: true, lastHeartbeat: serverTimestamp() }).catch(console.error);
+        triggerResume();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    const handleBlur = () => triggerPause();
+    const handleFocus = () => triggerResume();
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
       clearInterval(heartbeat);
       deleteDoc(sessionRef).catch(console.error);
     };
@@ -693,16 +712,17 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     try {
       const q = query(
         collection(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards'),
-        where('tournamentId', '==', tourney.id),
-        orderBy('score', 'desc'),
-        limit(tourney.topWinners)
+        where('tournamentId', '==', tourney.id)
       );
       const snapshot = await getDocs(q);
-      const winners = snapshot.docs.map((d, i) => ({
-        uid: d.data().uid,
-        nickname: d.data().nickname || 'Hero',
-        avatar: d.data().avatar || '👤',
-        score: d.data().score || 0,
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      docs.sort((a, b) => ((b.tournamentScore ?? b.score) || 0) - ((a.tournamentScore ?? a.score) || 0));
+      const top = docs.slice(0, tourney.topWinners);
+      const winners = top.map((d, i) => ({
+        uid: d.uid,
+        nickname: d.nickname || 'Hero',
+        avatar: d.avatar || '👤',
+        score: (d.tournamentScore ?? d.score) || 0,
         rank: i + 1,
         claimCode: Math.floor(1000 + Math.random() * 9000).toString(),
         claimExpiresAt: new Date(now).setHours(23, 59, 59, 999),
@@ -724,6 +744,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       }
       await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'venueTournaments', tourney.id), {
         resolved: true,
+        status: 'ended',
         winners,
       }, { merge: true });
       if (winners.some(w => w.uid === getUserId())) {
@@ -735,40 +756,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     }
   };
 
-  // Rank tracking effect
+  // Auto-resolve effect: check all active tournaments
   useEffect(() => {
-    if (!expandedTournament || tournamentEntries.length === 0) {
-      previousRankRef.current = null;
-      return;
-    }
-    const playerIdx = tournamentEntries.findIndex(e => e.uid === getUserId());
-    const newRank = playerIdx >= 0 ? playerIdx + 1 : null;
-    const oldRank = previousRankRef.current;
-    previousRankRef.current = newRank;
-
-    if (oldRank === null || newRank === null) return;
-    if (newRank <= expandedTournament.topWinners && oldRank > expandedTournament.topWinners) {
-      triggerHaptic([100, 50, 100]);
-      showToast(`🎉 ${t.rankGained.replace('{rank}', String(newRank)).replace('{prize}', expandedTournament.prize)}`);
-    } else if (newRank > expandedTournament.topWinners && oldRank <= expandedTournament.topWinners) {
-      triggerHaptic([50]);
-      showToast(`⚠️ ${t.rankLost.replace('{rank}', String(newRank)).replace('{prize}', expandedTournament.prize)}`);
-    }
-  }, [tournamentEntries, expandedTournament]);
-
-  // Auto-resolve effect: check expanded tournament
-  useEffect(() => {
-    if (!expandedTournament) return;
-    const tourney = expandedTournament;
+    if (activeTournaments.length === 0) return;
     const checkAndResolve = () => {
-      if (tourney.expiresAt?.toMillis() <= Date.now() && !tourney.resolved) {
-        resolveTournament(tourney);
+      for (const tourney of activeTournaments) {
+        if (tourney.expiresAt?.toMillis() <= Date.now() && !tourney.resolved) {
+          resolveTournament(tourney);
+        }
       }
     };
     checkAndResolve();
     const interval = setInterval(checkAndResolve, 30000);
     return () => clearInterval(interval);
-  }, [expandedTournament]);
+  }, [activeTournaments]);
 
   // Tournament end notification effect
   useEffect(() => {
@@ -824,7 +825,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 <button onClick={() => gamePlaying ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
                   <span className="text-sm">🏠</span> {t.quit}
                 </button>
-                {gamePlaying && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) && (
+                {gameActive && isAdmin && (
                   <button 
                     onClick={() => {
                       if ((window as any).Odesa?._triggerStop) {
@@ -943,36 +944,51 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             {activeTournaments.length > 0 && (
               <section>
                 <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-400" /> {t.activeTournaments}
+                  <Trophy className="w-5 h-5 text-yellow-400" />
+                  <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest">{activeTournaments.length} {t.liveTournaments}</span>
+                  {t.activeTournaments}
                 </h2>
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x snap-mandatory scrollbar-hide">
                   {activeTournaments.map(tourney => {
+                    const tourneyGame = gamesList.find(g => g.id === tourney.gameId);
                     const playerEntry = tournamentEntries.find(e => e.uid === getUserId());
                     const playerRank = playerEntry ? tournamentEntries.findIndex(e => e.uid === getUserId()) + 1 : null;
                     const isWinning = playerRank !== null && playerRank <= tourney.topWinners;
                     return (
                       <div
                         key={tourney.id}
-                        onClick={() => setExpandedTournament(expandedTournament?.id === tourney.id ? null : tourney)}
-                        className="snap-start shrink-0 w-64 bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-5 rounded-[24px] border border-yellow-400/20 cursor-pointer active:scale-95 transition-transform"
+                        onClick={() => {
+                          if (tourneyGame) {
+                            setTournamentPlayId(tourney.id);
+                            setActiveGame(tourneyGame);
+                            requestFS();
+                          }
+                        }}
+                        className="snap-start shrink-0 w-56 bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-5 rounded-[24px] border border-yellow-400/20 cursor-pointer active:scale-95 transition-transform"
                       >
-                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest mb-1">{tourney.venueName}</div>
+                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest mb-1 line-clamp-2 h-8 overflow-hidden">{tourney.venueName}</div>
                         <div className="text-lg font-black text-white leading-tight mb-2">{tourney.prize}</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-3">
-                          {(() => {
-                            const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
-                            const m = Math.floor(diff / 60000);
-                            const s = Math.floor((diff % 60000) / 1000);
-                            return `${t.tournamentEndsIn.replace('{n}', `${m}:${s.toString().padStart(2, '0')}`)}`;
-                          })()}
-                        </div>
                         {playerRank !== null && (
                           <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                             isWinning ? 'bg-yellow-400/20 text-yellow-400' : 'bg-slate-800 text-slate-400'
                           }`}>
-                            #{playerRank} {isWinning ? `🏆 ${t.winningPrize?.replace('{prize}', tourney.prize) || ''}` : ''}
+                            #{playerRank} {isWinning ? '🏆' : ''}
                           </div>
                         )}
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-1">
+                            {tourneyGame?.icon && <img src={tourneyGame.icon} alt="" className="w-4 h-4 object-contain" />}
+                            <span className="text-[10px] font-bold text-slate-400">{tourneyGame?.title[lang] || tourney.gameId}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-bold font-mono tabular-nums">
+                            {(() => {
+                              const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
+                              const m = Math.floor(diff / 60000);
+                              const s = Math.floor((diff % 60000) / 1000);
+                              return `${m}:${s.toString().padStart(2, '0')}`;
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -1014,99 +1030,6 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 </div>
               </section>
             ))}
-
-            {/* Expanded Tournament Detail */}
-            <AnimatePresence>
-              {expandedTournament && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-slate-900/50 p-5 rounded-[24px] border border-white/5 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest">{expandedTournament.venueName}</div>
-                        <div className="text-2xl font-black text-white mt-1">{expandedTournament.prize}</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
-                          🎮 {gamesList.find(g => g.id === expandedTournament.gameId)?.title[lang] || expandedTournament.gameId}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setExpandedTournament(null);
-                          setTournamentPlayId(null);
-                        }}
-                        className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Countdown */}
-                    <div className="text-center py-2">
-                      <div className="text-3xl font-black text-yellow-400 font-mono tabular-nums">
-                        {(() => {
-                          const diff = Math.max(0, expandedTournament.expiresAt?.toMillis() - Date.now());
-                          const m = Math.floor(diff / 60000);
-                          const s = Math.floor((diff % 60000) / 1000);
-                          return `${m}:${s.toString().padStart(2, '0')}`;
-                        })()}
-                      </div>
-                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{t.tournamentLeaderboard}</div>
-                    </div>
-
-                    {/* Play Button */}
-                    <button
-                      onClick={() => {
-                        const game = gamesList.find(g => g.id === expandedTournament.gameId);
-                        if (game) {
-                          setTournamentPlayId(expandedTournament.id);
-                          setActiveGame(game);
-                          requestFS();
-                        }
-                      }}
-                      className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl"
-                    >
-                      {t.playToWin}
-                    </button>
-
-                    {/* Leaderboard */}
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {tournamentEntries.map((e, i) => {
-                        const isPlayer = e.uid === getUserId();
-                        const isWinning = i < expandedTournament.topWinners;
-                        return (
-                          <div
-                            key={e.id}
-                            className={`flex items-center justify-between p-3 rounded-xl ${
-                              isPlayer
-                                ? 'bg-yellow-400/15 border border-yellow-400/30'
-                                : isWinning ? 'bg-yellow-400/5 border border-yellow-400/10' : 'bg-black/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className="text-sm w-5 text-center font-black shrink-0">
-                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-slate-600">#{i + 1}</span>}
-                              </span>
-                              <span className="text-base shrink-0">{e.avatar || '👤'}</span>
-                              <span className={`font-bold text-xs uppercase tracking-wider truncate ${isPlayer ? 'text-yellow-400' : 'text-white'}`}>
-                                {e.nickname}{isPlayer ? ` (${t.you})` : ''}
-                              </span>
-                            </div>
-                            <span className={`font-black font-mono shrink-0 ml-2 ${isPlayer ? 'text-yellow-400' : 'text-white'}`}>{e.score}</span>
-                          </div>
-                        );
-                      })}
-                      {tournamentEntries.length === 0 && (
-                        <div className="text-center py-8 text-slate-600 text-xs font-bold uppercase tracking-widest">{t.noEntries}</div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Gradient hint for scroll */}
             <div className="h-24 -mt-8 bg-gradient-to-t from-[#0a0a0c] to-transparent relative z-10" />
@@ -1263,7 +1186,7 @@ onClick={() => {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black uppercase italic tracking-tight">{t.profile}</h2>
               <div className="flex gap-2">
-                {['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) && (
+                {isAdmin && (
                   <>
                     <button onClick={() => setView('admin')} className="p-2 bg-slate-900 rounded-full text-purple-400">
                       <Activity className="w-5 h-5" />
@@ -1516,6 +1439,7 @@ onClick={() => {
                         const redeemed = p.redeemed;
                         const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
                         const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+                        const expiryDate = new Date(p.expiresAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         return (
                           <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
                             <div>
@@ -1529,7 +1453,7 @@ onClick={() => {
                               <div className={`text-[9px] font-black uppercase tracking-widest ${
                                 redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
                               }`}>
-                                {redeemed ? t.claimRedeemed : expired ? t.claimExpired : t.claimCode.replace('{code}', p.code || '')}
+                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${expiryDate}` : t.claimCode.replace('{code}', p.code || '')}
                               </div>
                             </div>
                           </div>

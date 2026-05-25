@@ -9,7 +9,7 @@ export const translations = {
     notice: "SHOW TO WAITER",
     expires: "Expires in",
     close: "DONE",
-    games: "GAMES",
+    games: "GAME",
     me: "ME",
     quit: "Quit",
     quitConfirm: "Quit Game?",
@@ -55,7 +55,7 @@ export const translations = {
 
     leaderboard: "HEROS",
     highScores: "High Scores",
-    noEntries: "No records yet",
+    noEntries: "No players yet",
     you: "YOU",
     score: "Score: ",
     share: "Share",
@@ -231,6 +231,7 @@ export const translations = {
 
     /* Tournament Mode */
     activeTournaments: "Active Tournaments",
+    liveTournaments: "Live Tournaments",
     noActiveTournaments: "No tournaments right now",
     tournamentEndsIn: "Ends in {n}",
     tournamentEnded: "Tournament ended",
@@ -270,7 +271,7 @@ export const translations = {
     notice: "ПОКАЖІТЬ ОФІЦІАНТОВІ",
     expires: "Дійсний ще",
     close: "ГОТОВО",
-    games: "ІГРИ",
+    games: "ГРА",
     me: "ПРОФІЛЬ",
     quit: "Вийти",
     quitConfirm: "Вийти з гри?",
@@ -316,7 +317,7 @@ export const translations = {
 
     leaderboard: "ГЕРОЇ",
     highScores: "Рекорди",
-    noEntries: "Поки немає записів",
+    noEntries: "Поки немає гравців",
     you: "ВИ",
     score: "Рахунок: ",
     share: "Поділитися",
@@ -492,6 +493,7 @@ export const translations = {
 
     /* Tournament Mode */
     activeTournaments: "Активні турніри",
+    liveTournaments: "Живі турніри",
     noActiveTournaments: "Зараз турнірів немає",
     tournamentEndsIn: "Закінчується через {n}",
     tournamentEnded: "Турнір завершено",

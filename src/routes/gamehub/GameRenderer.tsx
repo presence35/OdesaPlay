@@ -19,6 +19,8 @@ export function renderGameComponent(
   const w = window as any;
   w._odesaConfigListeners = w._odesaConfigListeners || [];
   w._odesaStopListeners = w._odesaStopListeners || [];
+  w._odesaPauseListeners = w._odesaPauseListeners || [];
+  w._odesaResumeListeners = w._odesaResumeListeners || [];
 
   if (!w.Odesa) {
     w.Odesa = {
@@ -42,6 +44,16 @@ export function renderGameComponent(
         const idx = w._odesaStopListeners.indexOf(cb);
         if (idx !== -1) w._odesaStopListeners.splice(idx, 1);
       },
+      onPause: function(cb: any) {
+        if (!w._odesaPauseListeners.includes(cb)) {
+          w._odesaPauseListeners.push(cb);
+        }
+      },
+      onResume: function(cb: any) {
+        if (!w._odesaResumeListeners.includes(cb)) {
+          w._odesaResumeListeners.push(cb);
+        }
+      },
       getConfig: function() {
         return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, credits: 100 };
       },
@@ -54,6 +66,12 @@ export function renderGameComponent(
       },
       _triggerStop: function() {
         w._odesaStopListeners.forEach((cb: any) => cb());
+      },
+      _triggerPause: function() {
+        w._odesaPauseListeners.forEach((cb: any) => cb());
+      },
+      _triggerResume: function() {
+        w._odesaResumeListeners.forEach((cb: any) => cb());
       }
     };
   }

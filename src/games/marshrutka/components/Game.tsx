@@ -729,7 +729,7 @@ export default function Game() {
   const [lang, setLang] = useState<'en' | 'uk'>('uk');
   const [displayScore, setDisplayScore] = useState(0);
   const scoreRef = useRef(0);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'win'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'paused' | 'gameover' | 'win'>('start');
   const [timeLeft, setTimeLeft] = useState(60);
   const [activeRoute, setActiveRoute] = useState(ROUTES[0]);
   const [difficulty, setDifficulty] = useState<'slow' | 'fast'>('slow');
@@ -1600,7 +1600,7 @@ export default function Game() {
       gameWidthRef.current = rect.width;
       gameHeightRef.current = rect.height;
       laneLimitRef.current = (rect.width - 96) / 2;
-      busYRef.current = rect.height - 100;
+      busYRef.current = rect.height - 200;
     };
     const observer = new ResizeObserver(resizeCanvas);
     observer.observe(container);

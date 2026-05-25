@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { db, auth, getUserId, ensureAnonymousAuth } from '../firebase';
-import { useVenues, useActiveTournaments, useTournamentLeaderboard } from '../data/restaurants';
+import { useVenues, useActiveTournaments, useTournamentLeaderboard, useTournament } from '../data/restaurants';
 import { getDailyToken } from '../utils/qr';
 import { translations, Language } from '../language';
 import { showToast } from '../components/Toast';
@@ -60,18 +60,26 @@ export default function ManagerHub() {
   const { venues } = useVenues();
   const { tournaments: allTournaments } = useActiveTournaments();
   const activeTournament = allTournaments.find(t => t.venueId === restaurantId) || null;
+  const [lastTournamentId, setLastTournamentId] = useState<string | null>(null);
+  const { tournament: endedTournament } = useTournament(lastTournamentId);
   const [tournamentGame, setTournamentGame] = useState('shooter');
   const [tournamentPrize, setTournamentPrize] = useState('');
   const [tournamentTopWinners, setTournamentTopWinners] = useState(1);
   const { entries: tournamentEntries } = useTournamentLeaderboard(activeTournament?.id || null);
   const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (activeTournament?.id) {
+      setLastTournamentId(activeTournament.id);
+    }
+  }, [activeTournament?.id]);
   const notifiedManagerRef = useRef<Set<string>>(new Set());
 
   const GAME_OPTIONS = [
-    { id: 'shooter', title: { en: 'Sharpshooter', uk: 'Стрілець' } },
-    { id: 'drones', title: { en: 'Drones', uk: 'Дрони' } },
-    { id: 'marshrutka', title: { en: 'Marshrutka', uk: 'Маршрутка' } },
-    { id: 'trivia', title: { en: 'Trivia', uk: 'Вікторина' } },
+    { id: 'shooter', title: { en: 'Odesa Sharpshooter', uk: 'Одеський Стрілець' }, icon: '/images/shooter.png' },
+    { id: 'drones', title: { en: 'Russian Drones', uk: 'Російські Дрони' }, icon: '/images/drone.png' },
+    { id: 'marshrutka', title: { en: 'Crazy Marshrutka', uk: 'Шалена Маршрутка' }, icon: '/images/marshrutka.png' },
+    { id: 'trivia', title: { en: 'Odesa & Ukraine Trivia', uk: 'Вікторина про Одесу та Україну' }, icon: '/images/trivia.png' },
   ];
 
   const restaurant = venues.find(r => r.id === restaurantId);
@@ -535,88 +543,120 @@ export default function ManagerHub() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {!activeTournament || activeTournament.status === 'ended' ? (
-                <>
-                  <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
-                    <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
-                      <Trophy className="w-4 h-4 text-yellow-400" /> {t.launchTournament}
-                    </h3>
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.prizeLabel}</label>
-                      <input
-                        type="text"
-                        value={tournamentPrize}
-                        onChange={e => setTournamentPrize(e.target.value)}
-                        placeholder={lang === 'uk' ? 'Напр. Безкоштовна кава' : 'E.g. Free coffee'}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 shadow-inner text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.games}</label>
-                      <div className="flex gap-2 flex-wrap">
-                        {GAME_OPTIONS.map(g => (
-                          <button
-                            key={g.id}
-                            onClick={() => setTournamentGame(g.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
-                              tournamentGame === g.id
-                                ? 'bg-yellow-400 text-black'
-                                : 'bg-slate-800 text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            {g.title[lang]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.topWinners}</label>
-                      <div className="flex gap-2">
-                        {[1, 3, 5].map(n => (
-                          <button
-                            key={n}
-                            onClick={() => setTournamentTopWinners(n)}
-                            className={`flex-1 py-3 rounded-xl text-sm font-black uppercase transition-all ${
-                              tournamentTopWinners === n
-                                ? 'bg-yellow-400 text-black'
-                                : 'bg-slate-800 text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            {n === 1 ? '🥇' : n === 3 ? '🥇🥈🥉' : '🏅 x5'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      onClick={launchTournament}
-                      disabled={!tournamentPrize.trim()}
-                      className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-2 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {t.launch1hButton}
-                    </button>
+              {/* Create new tournament form */}
+              {(!activeTournament || activeTournament.status === 'ended') && (
+                <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
+                  <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
+                    <Trophy className="w-4 h-4 text-yellow-400" /> {t.launchTournament}
+                  </h3>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.prizeLabel}</label>
+                    <input
+                      type="text"
+                      value={tournamentPrize}
+                      onChange={e => setTournamentPrize(e.target.value)}
+                      placeholder={lang === 'uk' ? 'Напр. Безкоштовна кава' : 'E.g. Free coffee'}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 shadow-inner text-sm"
+                    />
                   </div>
-                </>
-              ) : (
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.games}</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {GAME_OPTIONS.map(g => (
+                        <button
+                          key={g.id}
+                          onClick={() => setTournamentGame(g.id)}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
+                            tournamentGame === g.id
+                              ? 'bg-yellow-400 text-black'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {g.icon && <img src={g.icon} alt="" className="w-4 h-4 object-contain" />}
+                          {g.title[lang]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.topWinners}</label>
+                    <div className="flex gap-2 justify-center">
+                      {[1,2,3,4,5].map(i => {
+                        const selected = i <= tournamentTopWinners;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setTournamentTopWinners(i)}
+                            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                              selected
+                                ? 'bg-yellow-400/15 border-2 border-yellow-400'
+                                : 'bg-slate-800/50 border-2 border-transparent hover:bg-slate-700/50'
+                            }`}
+                          >
+                            <span className="relative w-[28px] h-[28px] shrink-0" style={{ filter: selected ? 'none' : 'grayscale(1) opacity(0.4)' }}>
+                              <img src="/images/trophy-badge.png" alt="" className="w-full h-full object-contain" />
+                              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-white translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={launchTournament}
+                    disabled={!tournamentPrize.trim()}
+                    className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-2 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {t.launch1hButton}
+                  </button>
+                </div>
+              )}
+
+              {/* Ended tournament winners */}
+              {endedTournament?.winners && endedTournament.winners.length > 0 && (
+                <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
+                  <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+                    <Ticket className="w-4 h-4 text-green-400" /> Winners
+                  </h3>
+                  <div className="space-y-3">
+                    {endedTournament.winners.map(w => (
+                      <div key={w.uid} className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{w.avatar || '👤'}</span>
+                            <div>
+                              <div className="text-sm font-bold text-white">{w.nickname}</div>
+                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">#{w.rank} · {w.score} pts</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-green-400 font-mono tracking-widest">{w.claimCode}</div>
+                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                              {w.claimed ? 'Redeemed ✓' : 'Pending'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Active tournament view */}
+              {activeTournament && activeTournament.status === 'active' && (
                 <>
                   <div className="bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-6 rounded-[32px] border border-yellow-400/20 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-black uppercase text-yellow-400 tracking-widest italic">
-                        🏆 {t.tournamentActive}
-                      </h3>
-                      <button
-                        onClick={endTournamentEarly}
-                        className="text-[10px] text-red-400 font-bold uppercase tracking-wider underline"
-                      >
-                        End early
-                      </button>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-black text-white">{activeTournament.prize}</div>
-                      <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
-                        {GAME_OPTIONS.find(g => g.id === activeTournament.gameId)?.title[lang] || activeTournament.gameId}
-                      </div>
-                    </div>
-                    <div className="text-center">
+                    {(() => {
+                      const g = GAME_OPTIONS.find(g => g.id === activeTournament.gameId);
+                      return (
+                        <h3 className="flex items-center gap-1.5 text-sm font-black uppercase text-yellow-400 tracking-widest italic">
+                          {g?.icon && <img src={g.icon} alt="" className="w-5 h-5 object-contain" />}
+                          {g?.title[lang] || activeTournament.gameId}
+                        </h3>
+                      );
+                    })()}
+                    <div className="text-2xl font-black text-white text-center">{activeTournament.prize}</div>
+                    <div className="flex justify-between items-center">
                       <div className="text-4xl font-black text-yellow-400 font-mono tabular-nums">
                         {(() => {
                           const diff = Math.max(0, activeTournament.expiresAt?.toMillis() - Date.now());
@@ -625,7 +665,16 @@ export default function ManagerHub() {
                           return `${m}:${s.toString().padStart(2, '0')}`;
                         })()}
                       </div>
-                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{t.tournamentLeaderboard}</div>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('End tournament early? Players currently in the lead will lose their progress.')) {
+                            endTournamentEarly();
+                          }
+                        }}
+                        className="flex items-center gap-1 text-[10px] text-red-400/60 font-bold uppercase tracking-wider hover:text-red-400 transition-colors"
+                      >
+                        🏁 End early
+                      </button>
                     </div>
                   </div>
 
@@ -645,14 +694,19 @@ export default function ManagerHub() {
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className="text-sm w-5 text-center font-black">
-                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-slate-600">#{i + 1}</span>}
-                              </span>
+                              {i < 3 ? (
+                                <span className="relative w-[28px] h-[28px] shrink-0" style={{ filter: i === 0 ? 'none' : i === 1 ? 'grayscale(0.4) brightness(1.1)' : 'grayscale(0.6) brightness(0.9)' }}>
+                                  <img src="/images/trophy-badge.png" alt="" className="w-full h-full object-contain" />
+                                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-white translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i + 1}</span>
+                                </span>
+                              ) : (
+                                <span className="text-sm w-[28px] text-center font-black text-slate-600">#{i + 1}</span>
+                              )}
                               <span className="text-lg">{e.avatar || '👤'}</span>
                               <div>
                                 <div className="text-sm font-bold text-white">{e.nickname}</div>
                                 <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                                  {isWinning ? (t as any).winningPrize?.replace('{prize}', activeTournament.prize) || 'Winning!' : ''}
+                                  {isWinning ? '🏆' : ''}
                                 </div>
                               </div>
                             </div>
@@ -665,35 +719,6 @@ export default function ManagerHub() {
                       )}
                     </div>
                   </div>
-
-                  {activeTournament.winners && activeTournament.winners.length > 0 && (
-                    <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                      <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
-                        <Ticket className="w-4 h-4 text-green-400" /> Winners
-                      </h3>
-                      <div className="space-y-3">
-                        {activeTournament.winners.map(w => (
-                          <div key={w.uid} className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">{w.avatar || '👤'}</span>
-                                <div>
-                                  <div className="text-sm font-bold text-white">{w.nickname}</div>
-                                  <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">#{w.rank} · {w.score} pts</div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-lg font-black text-green-400 font-mono tracking-widest">{w.claimCode}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                                  {w.claimed ? 'Redeemed ✓' : 'Pending'}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </motion.div>

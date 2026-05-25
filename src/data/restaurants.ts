@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
 import { db, ensureAnonymousAuth } from '../firebase';
 import { VenueTournament } from '../routes/gamehub/types';
 
@@ -123,12 +123,12 @@ export function useTournamentLeaderboard(tournamentId: string | null) {
       unsub = onSnapshot(
         query(
           collection(db, BASE, 'leaderboards'),
-          where('tournamentId', '==', tournamentId),
-          orderBy('score', 'desc'),
-          limit(50)
+          where('tournamentId', '==', tournamentId)
         ),
         snapshot => {
-          setEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+          const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+          all.sort((a, b) => ((b.tournamentScore ?? b.score) || 0) - ((a.tournamentScore ?? a.score) || 0));
+          setEntries(all.slice(0, 50));
           setLoading(false);
         },
         err => {
