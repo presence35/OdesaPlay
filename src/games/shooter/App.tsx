@@ -20,7 +20,8 @@ export default function App() {
   const timeRef = useRef<HTMLParagraphElement>(null);
   
   const [gameState, setGameState] = useState<GameState>({
-    score: 100,
+    silenceLevel: 100,
+    score: 0,
     vehicles: [],
     particles: [],
     projectiles: [],
@@ -37,13 +38,15 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const startedRef = useRef(false);
   const recoveringRef = useRef(false);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
   const [lang, setLang] = useState<Lang>('uk');
   const t = TRANSLATIONS[lang];
   
   const resetGame = () => {
     sounds.stopAll();
     const newState: GameState = {
-      score: 100, vehicles: [], particles: [], projectiles: [],
+      silenceLevel: 100, score: 0, vehicles: [], particles: [], projectiles: [],
       weapon: 'water', timeLeft: 60, gameOver: false, isShooting: false,
     };
     stateRef.current = newState;
@@ -63,9 +66,9 @@ export default function App() {
   // Pixi refs
   const pixiAppRef = useRef<PIXI.Application | null>(null);
   const vehiclePoolRef = useRef<ObjectPool<PIXI.Container> | null>(null);
+  const projectilePoolRef = useRef<ObjectPool<PIXI.Container> | null>(null);
   const visualsRef = useRef(new Map<string, PIXI.Container>());
   const particleGfxRef = useRef<PIXI.Graphics | null>(null);
-  const projectileVisualsRef = useRef(new Map<string, PIXI.Container>());
   const texturesRef = useRef<Record<string, PIXI.Texture>>({});
   
   const layersRef = useRef({
@@ -96,12 +99,32 @@ export default function App() {
         }
       });
     }
+    if (window.Odesa?.onStop) {
+      window.Odesa.onStop(() => {
+        stateRef.current.gameOver = true;
+        setGameState({ ...stateRef.current });
+        if (window.Odesa?.gameOver) window.Odesa.gameOver(stateRef.current.score);
+        setStarted(false);
+      });
+    }
+    if (window.Odesa?.ready) window.Odesa.ready();
+    if (window.Odesa?.onPause) {
+      window.Odesa.onPause(() => {
+        if (startedRef.current && !stateRef.current.gameOver) {
+          pausedRef.current = true;
+          setPaused(true);
+        }
+      });
+    }
+    if (window.Odesa?.onResume) {
+      window.Odesa.onResume(() => {
+        if (pausedRef.current) {
+          pausedRef.current = false;
+          setPaused(false);
+        }
+      });
+    }
   }, []);
-
-  useEffect(() => {
-    sounds.setScore(gameState.score);
-    stateRef.current = gameState;
-  }, [gameState]);
 
   useEffect(() => {
     const parent = containerRef.current;
@@ -114,11 +137,19 @@ export default function App() {
     (async () => {
       visualsRef.current.clear();
       particleGfxRef.current = null;
-      projectileVisualsRef.current.clear();
+      projectilePoolRef.current?.destroyAll(c => c.destroy());
       vehiclePoolRef.current?.destroyAll(c => c.destroy());
       const makeVContainer = () => {
         const c = new PIXI.Container();
         const s = new PIXI.Sprite(); s.anchor.set(0.5); s.label = 'body'; c.addChild(s);
+        const makeWheel = (label: string) => {
+          const s = new PIXI.Sprite();
+          s.anchor.set(0.5);
+          s.label = label;
+          return s;
+        };
+        c.addChild(makeWheel('wheelFront'));
+        c.addChild(makeWheel('wheelRear'));
         const it = new PIXI.Text({ text: '', style: { fill: 0xffffff, fontSize: 30 }}); it.anchor.set(0.5); it.label = 'icon'; c.addChild(it);
         const nt = new PIXI.Text({ text: '🔊', style: { fill: 0xffffff, fontSize: 30 }}); nt.anchor.set(0.5); nt.label = 'noise'; c.addChild(nt);
         const wbg = new PIXI.Graphics(); wbg.label = 'waterbg'; c.addChild(wbg);
@@ -127,6 +158,10 @@ export default function App() {
       };
       const resetV = (c: PIXI.Container) => { c.visible = false; c.alpha = 1; };
       vehiclePoolRef.current = new ObjectPool(makeVContainer, resetV, 20);
+
+      const makePContainer = () => new PIXI.Container();
+      const resetP = (c: PIXI.Container) => { c.removeChildren(); c.visible = false; };
+      projectilePoolRef.current = new ObjectPool(makePContainer, resetP, 30);
 
       layersRef.current = {
         background: new PIXI.Container(),
@@ -186,6 +221,8 @@ export default function App() {
         blueCar: '/games/shooter/mercedes1.png',
         bike: '/games/shooter/bike1.png',
         redBike: '/games/shooter/bike2.png',
+        wheelFront: '/games/shooter/bmw1_wheel_front.png',
+        wheelBack: '/games/shooter/bmw1_wheel_back.png',
         ak47: '/games/shooter/ak47.png',
         ak47_top: '/games/shooter/ak47_top.png',
       };
@@ -216,9 +253,6 @@ export default function App() {
       const bgSprite = new PIXI.Sprite(texturesRef.current.bg);
       bgSprite.anchor.set(0.5, 1.0);
       layers.background.addChild(bgSprite);
-
-      const skyGfx = new PIXI.Graphics();
-      layers.background.addChildAt(skyGfx, 0);
 
       const roadGfx = new PIXI.Graphics();
       layers.road.addChild(roadGfx);
@@ -254,12 +288,8 @@ export default function App() {
         const w = app.screen.width;
         const h = app.screen.height;
         const cx = w / 2;
-        const skyHeight = h * 0.45;
-
-        // Background / Sky
-        skyGfx.clear();
-        skyGfx.rect(0, 0, w, skyHeight);
-        skyGfx.fill({ color: 0x87CEEB });
+        const skyHeight = h * 0.38;
+        const sidewalkHeight = Math.min(35, h * 0.05);
 
         if (bgSprite.texture) {
           const scale = Math.max(w / bgSprite.texture.width, skyHeight / bgSprite.texture.height);
@@ -270,10 +300,13 @@ export default function App() {
 
         // Road
         roadGfx.clear();
-        roadGfx.rect(0, skyHeight, w, h - skyHeight).fill({ color: 0x555555 });
+        roadGfx.rect(0, skyHeight, w, h - sidewalkHeight - skyHeight).fill({ color: 0x555555 });
         for (let i = 0; i < w; i += 80) {
-          roadGfx.rect(i, skyHeight + (h - skyHeight) * 0.45, 40, 10).fill({ color: 0xffffff });
+          roadGfx.rect(i, skyHeight + (h - sidewalkHeight - skyHeight) * 0.45, 40, 10).fill({ color: 0xffffff });
         }
+        // Sidewalk
+        roadGfx.rect(0, h - sidewalkHeight, w, sidewalkHeight).fill({ color: 0x888888 });
+        roadGfx.rect(0, h - sidewalkHeight, w, 2).fill({ color: 0xcccccc });
 
         // Foreground
         foregroundGfx.clear();
@@ -350,6 +383,7 @@ export default function App() {
             p.x = p.targetX;
             p.y = p.targetY;
             handleProjectileHit(p, state);
+            projectilePoolRef.current!.release(p.container);
             state.projectiles.splice(i, 1);
             continue;
           }
@@ -417,12 +451,13 @@ export default function App() {
         });
         state.particles = state.particles.filter(p => p.life > 0);
 
-        if (scoreRef.current) scoreRef.current.innerText = `${t.silence}: ${Math.floor(state.score)}`;
-        if (noiseBarRef.current) noiseBarRef.current.style.width = `${Math.max(0, Math.min(100, 100 - state.score))}%`;
+        sounds.setScore(state.silenceLevel);
+        if (scoreRef.current) scoreRef.current.innerText = `${t.score}: ${Math.floor(state.score)}`;
+        if (noiseBarRef.current) noiseBarRef.current.style.width = `${Math.max(0, Math.min(100, 100 - state.silenceLevel))}%`;
         if (timeRef.current) timeRef.current.innerText = `${Math.ceil(state.timeLeft)}`;
       };
 
-      const syncVisuals = () => {
+      const syncVisuals = (dt: number) => {
         const state = stateRef.current;
         const w = app.screen.width;
         const h = app.screen.height;
@@ -451,22 +486,58 @@ export default function App() {
           const texAlias = textureMap[v.type][String(v.isNoisy)] || 'car';
           body.texture = texturesRef.current[texAlias];
           
+          let drawH = 0, drawW = 0;
           if (body.texture) {
-            const drawH = v.type === 'motorcycle' ? 63 : 60;
-            const drawW = body.texture.width * (drawH / body.texture.height);
+            drawH = v.type === 'motorcycle' ? 63 : 60;
+            drawW = body.texture.width * (drawH / body.texture.height);
             body.width = drawW;
             body.height = drawH;
             
             body.scale.x = Math.abs(body.scale.x) * (v.direction === 1 ? -1 : 1);
+
+            const wheelFront = vContainer.getChildByLabel('wheelFront') as PIXI.Sprite;
+            const wheelRear = vContainer.getChildByLabel('wheelRear') as PIXI.Sprite;
+            if (texAlias === 'car') {
+              wheelFront.texture = texturesRef.current.wheelFront;
+              wheelRear.texture = texturesRef.current.wheelBack;
+              wheelFront.visible = true;
+              wheelRear.visible = true;
+            } else {
+              wheelFront.texture = PIXI.Texture.EMPTY;
+              wheelRear.texture = PIXI.Texture.EMPTY;
+            }
+            if (texAlias === 'car') {
+              const carTex = texturesRef.current.car;
+              const wheelScale = drawH / Math.max(carTex.height, 1);
+              wheelFront.scale.set(wheelScale);
+              wheelRear.scale.set(wheelScale);
+            }
+            const frontFracX = v.type === 'car' ? 0.17 : 0.10;
+            const rearFracX = v.type === 'car' ? 0.79 : 0.90;
+            const wheelFracY = 0.80;
+            const frontCenterX = (frontFracX - 0.5) * drawW;
+            const rearCenterX = (rearFracX - 0.5) * drawW;
+            const wheelCenterY = (wheelFracY - 0.5) * drawH;
+            wheelFront.x = frontCenterX * (v.direction === 1 ? -1 : 1);
+            wheelFront.y = wheelCenterY;
+            wheelRear.x = (rearCenterX + 1) * (v.direction === 1 ? -1 : 1);
+            wheelRear.y = wheelCenterY - 2;
+            wheelFront.rotation += v.speed * dt * 0.04 * v.direction;
+            wheelRear.rotation += v.speed * dt * 0.04 * v.direction;
           }
 
           const icon = vContainer.getChildByLabel('icon') as PIXI.Text;
+          const bananaUp = v.type === 'motorcycle' ? 20 : 10;
           if (v.status === 'banana-stopped') {
-            icon.text = '🍌'; icon.style.fontSize = 30; icon.y = -30;
+            icon.text = '🍌'; icon.style.fontSize = 30;
+            icon.x = (v.direction === 1 ? -1 : 1) * (drawW / 2 + 5);
+            icon.y = drawH / 2 - bananaUp;
           } else if (v.status === 'exploded') {
             icon.text = '💥'; icon.style.fontSize = 50; icon.y = -20;
           } else if (v.bananaHits > 0) {
-            icon.text = '🍌'; icon.style.fontSize = 24; icon.y = -20;
+            icon.text = '🍌'; icon.style.fontSize = 24;
+            icon.x = (v.direction === 1 ? -1 : 1) * drawW / 2;
+            icon.y = drawH / 2 - bananaUp;
           } else {
             icon.text = '';
           }
@@ -500,42 +571,19 @@ export default function App() {
           }
         }
 
-        // Sync Projectiles
-        const currentPIds = new Set<string>();
+        // Sync Projectiles (pooled)
         state.projectiles.forEach(p => {
-          currentPIds.add(p.id);
-          let pC = projectileVisualsRef.current.get(p.id);
-          if (!pC) {
-            pC = new PIXI.Container();
-            layers.entity.addChild(pC);
-            projectileVisualsRef.current.set(p.id, pC);
-            
-            if (p.type === 'water') {
-              let g = new PIXI.Graphics();
-              g.circle(0, 0, 4).fill({ color: 0x00BFFF });
-              pC.addChild(g);
-            } else if (p.type === 'bullet') {
-              let g = new PIXI.Graphics();
-              g.rect(-5, -2, 10, 4).fill({ color: 0xFFD700 });
-              pC.addChild(g);
-            } else if (p.type === 'banana') {
-              let t = new PIXI.Text({ text: '🍌', style: { fontSize: 30 }});
-              t.anchor.set(0.5);
-              pC.addChild(t);
-            }
-          }
-          pC.x = p.x;
-          pC.y = p.y;
+          p.container.visible = true;
+          p.container.x = p.x;
+          p.container.y = p.y;
           if (p.type === 'banana') {
-            pC.rotation = p.progress * Math.PI * 8;
+            p.container.rotation = p.progress * Math.PI * 8;
           } else if (p.type === 'bullet') {
-            pC.rotation = Math.atan2(p.targetY - p.startY, p.targetX - p.startX);
+            p.container.rotation = Math.atan2(p.targetY - p.startY, p.targetX - p.startX);
+          } else {
+            p.container.rotation = 0;
           }
         });
-
-        for (const [id, c] of projectileVisualsRef.current.entries()) {
-          if (!currentPIds.has(id)) { c.destroy(); projectileVisualsRef.current.delete(id); }
-        }
 
         // Sync Particles (batched single Graphics)
         let batchP = particleGfxRef.current;
@@ -564,7 +612,7 @@ export default function App() {
         crosshair.moveTo(mx, my - 30).lineTo(mx, my + 30);
         crosshair.stroke();
 
-        const angle = Math.atan2(my - gunY, mx - cx);
+        const angle = Math.atan2(Math.min(my - gunY, 0), mx - cx);
         aimWeaponSprite.x = cx;
         aimWeaponSprite.y = gunY;
         aimWeaponText.x = cx;
@@ -594,11 +642,14 @@ export default function App() {
 
       // Ticker Loop
       app.ticker.add((ticker) => {
-        if (startedRef.current) {
-          updatePhysics(ticker.deltaMS / 1000);
+        const dt = ticker.deltaMS / 1000;
+        const running = startedRef.current && !pausedRef.current;
+        if (running) {
+          updatePhysics(dt);
         }
-        syncVisuals();
+        syncVisuals(running ? dt : 0);
       });
+      app.ticker.maxFPS = 60;
 
     })();
 
@@ -608,6 +659,8 @@ export default function App() {
       pixiAppRef.current = null;
       vehiclePoolRef.current?.destroyAll(c => c.destroy());
       vehiclePoolRef.current = null;
+      projectilePoolRef.current?.destroyAll(c => c.destroy());
+      projectilePoolRef.current = null;
       if (app) {
         if (appInitialized) {
           try {
@@ -630,8 +683,9 @@ export default function App() {
     const direction = Math.random() > 0.5 ? 1 : -1;
     const isMotorcycle = Math.random() > 0.5;
     
-    const skyHeight = h * 0.45;
-    const streetHeight = h - skyHeight;
+    const skyHeight = h * 0.38;
+    const sidewalkHeight = Math.min(35, h * 0.05);
+    const streetHeight = h - sidewalkHeight - skyHeight;
 
     const laneCenters = [
       skyHeight + streetHeight * 0.2,
@@ -687,6 +741,23 @@ export default function App() {
 
   const spawnProjectile = (type: string, startX: number, startY: number, targetX: number, targetY: number) => {
     const state = stateRef.current;
+    const container = projectilePoolRef.current!.acquire();
+    container.visible = false;
+    container.rotation = 0;
+    layersRef.current.entity.addChild(container);
+    if (type === 'water') {
+      const g = new PIXI.Graphics();
+      g.circle(0, 0, 4).fill({ color: 0x00BFFF });
+      container.addChild(g);
+    } else if (type === 'bullet') {
+      const g = new PIXI.Graphics();
+      g.rect(-5, -2, 10, 4).fill({ color: 0xFFD700 });
+      container.addChild(g);
+    } else if (type === 'banana') {
+      const t = new PIXI.Text({ text: '🍌', style: { fontSize: 30 }});
+      t.anchor.set(0.5);
+      container.addChild(t);
+    }
     state.projectiles.push({
       id: Math.random().toString(),
       x: startX,
@@ -697,7 +768,8 @@ export default function App() {
       targetY,
       progress: 0,
       speed: type === 'banana' ? 800 : type === 'bullet' ? 2000 : 1500,
-      type: type as any
+      type: type as any,
+      container,
     });
     if (type === 'banana') sounds.playBananaThrow();
     else if (type === 'bullet') sounds.playAK47();
@@ -708,8 +780,8 @@ export default function App() {
     let hitSomething = false;
     for (let i = state.vehicles.length - 1; i >= 0; i--) {
       const v = state.vehicles[i];
-      const halfW = (v.width / 2) + 40;
-      const halfH = (v.height / 2) + 40;
+      const halfW = p.type === 'banana' ? 25 : (v.width / 2) + 40;
+      const halfH = p.type === 'banana' ? 25 : (v.height / 2) + 40;
       
       const tailX = v.x + (v.direction === 1 ? -v.width / 2 : v.width / 2);
       const hitX = p.type === 'banana' ? tailX : p.x;
@@ -722,12 +794,11 @@ export default function App() {
 
         hitSomething = true;
         if (v.isNoisy) {
-          const baseScore = v.type === 'motorcycle' ? 6 : 5;
           if (p.type === 'water') {
             v.waterLevel += 25;
             if (v.waterLevel >= 100) {
               v.status = 'watered';
-              state.score -= baseScore * 5;
+              state.score += 3;
               createParticles(state, v.x, v.y, 'water');
             } else {
               createParticles(state, p.x, p.y, 'water');
@@ -736,7 +807,7 @@ export default function App() {
             v.bananaHits += 1;
             if (v.bananaHits >= 2) {
               v.status = 'banana-stopped';
-              state.score -= baseScore * 3;
+              state.score += 2;
               createParticles(state, hitX, hitY, 'banana');
               sounds.playBananaHit();
             } else {
@@ -745,12 +816,12 @@ export default function App() {
             }
           } else if (p.type === 'bullet') {
             v.status = 'exploded';
-            state.score -= baseScore * 1;
+            state.score += 1;
             createParticles(state, v.x, v.y, 'explosion');
             sounds.playExplosion();
           }
         } else {
-          state.score = Math.min(100, state.score + 10);
+          state.score = Math.max(0, state.score - 10);
           sounds.playError();
           if (p.type === 'water') {
             v.waterLevel += 25;
@@ -816,15 +887,7 @@ export default function App() {
       const w = pixiAppRef.current?.screen.width || window.innerWidth;
       const h = pixiAppRef.current?.screen.height || window.innerHeight;
       const gunY = h - Math.min(50, h * 0.1);
-      
-      state.projectiles.push({
-        id: Math.random().toString(),
-        x: w / 2, y: gunY,
-        startX: w / 2, startY: gunY,
-        targetX: mx, targetY: my,
-        progress: 0, speed: 800, type: 'banana'
-      });
-      sounds.playBananaThrow();
+      spawnProjectile('banana', w / 2, gunY, mx, my);
     }
     setGameState({ ...state });
   };
@@ -851,9 +914,9 @@ export default function App() {
       </div>
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 md:-translate-x-0 md:left-4 p-2 px-4 bg-black/60 rounded-xl backdrop-blur-sm border border-white/20 select-none pointer-events-none flex flex-col items-center min-w-[120px]">
-        <p ref={scoreRef} className="text-xl font-bold text-yellow-400 tracking-wider pt-1">{t.silence}: {Math.floor(gameState.score)}</p>
+        <p ref={scoreRef} className="text-xl font-bold text-yellow-400 tracking-wider pt-1">{t.score}: {Math.floor(gameState.score)}</p>
         <div className="w-full h-1 bg-gray-700 rounded overflow-hidden mt-1 opacity-80" title={t.noiseLevel}>
-          <div ref={noiseBarRef} className="h-full bg-red-400" style={{ width: `${Math.max(0, Math.min(100, 100 - gameState.score))}%` }} />
+          <div ref={noiseBarRef} className="h-full bg-red-400" style={{ width: `${Math.max(0, Math.min(100, 100 - gameState.silenceLevel))}%` }} />
         </div>
       </div>
 
@@ -863,14 +926,20 @@ export default function App() {
 
       {gameState.gameOver && (
         <GameEndScreen
-          score={Math.max(0, gameState.score)}
+          score={gameState.score}
           imageSrc="/games/shooter/bike1.png"
           title={{ win: t.gameOver, lose: t.gameOver }}
-          subtitle={t.finalSilence}
+          subtitle={t.finalScore}
           onPlayAgain={resetGame}
           onQuit={() => window.parent.postMessage({ type: 'ODESAPLAY_RESTART' }, window.location.origin)}
           t={{ playAgain: t.playAgain, tryAgain: t.playAgain }}
         />
+      )}
+
+      {paused && (
+        <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+          <div className="text-white text-5xl font-black tracking-widest drop-shadow-lg select-none">PAUSED</div>
+        </div>
       )}
 
       <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-auto z-10">

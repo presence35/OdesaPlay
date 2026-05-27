@@ -1,21 +1,17 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { readFileSync, existsSync } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const path = require('path');
+const { readFileSync, existsSync } = require('fs');
 
 // ── Firebase Admin (optional — only loads if service-account.json exists) ────
 let admin, adminDb;
 const SA_PATH = path.join(__dirname, 'service-account.json');
 if (existsSync(SA_PATH)) {
   try {
-    const fbAdmin = await import('firebase-admin');
-    admin = fbAdmin.default;
+    const fbAdmin = require('firebase-admin');
+    admin = fbAdmin;
     const sa = JSON.parse(readFileSync(SA_PATH, 'utf-8'));
     admin.initializeApp({ credential: admin.credential.cert(sa) });
-    const { getFirestore } = await import('firebase-admin/firestore');
+    const { getFirestore } = require('firebase-admin/firestore');
     adminDb = getFirestore();
     console.log('[FCM] Firebase Admin initialized');
   } catch (e) {

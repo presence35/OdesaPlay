@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   collection, doc, onSnapshot,
-  setDoc, deleteDoc, updateDoc, serverTimestamp, increment, getDoc, addDoc,
+  setDoc, deleteDoc, updateDoc, serverTimestamp, increment, getDoc, getDocs, addDoc,
   Timestamp, query, where, orderBy, limit
 } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -267,10 +267,43 @@ export default function ManagerHub() {
 
   const endTournamentEarly = async () => {
     if (!activeTournament) return;
+    const now = Date.now();
     try {
+      const q = query(
+        collection(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards'),
+        where('tournamentId', '==', activeTournament.id)
+      );
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      docs.sort((a, b) => ((b.tournamentScore ?? b.score) || 0) - ((a.tournamentScore ?? a.score) || 0));
+      const top = docs.slice(0, activeTournament.topWinners);
+      const winners = top.map((d, i) => ({
+        uid: d.uid,
+        nickname: d.nickname || 'Hero',
+        avatar: d.avatar || '👤',
+        score: (d.tournamentScore ?? d.score) || 0,
+        rank: i + 1,
+        claimCode: Math.floor(1000 + Math.random() * 9000).toString(),
+        claimExpiresAt: new Date(now).setHours(23, 59, 59, 999),
+        claimed: false,
+      }));
+      for (const w of winners) {
+        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'), {
+          code: w.claimCode,
+          venueId: activeTournament.venueId,
+          rewardType: activeTournament.prize,
+          gameTitle: activeTournament.gameId,
+          score: w.score,
+          tier: 0,
+          timestamp: serverTimestamp(),
+          expiresAt: w.claimExpiresAt,
+          uid: w.uid,
+          tournamentId: activeTournament.id,
+        });
+      }
       await setDoc(
         doc(db, 'artifacts', APP_ID, 'public', 'data', 'venueTournaments', activeTournament.id),
-        { expiresAt: Timestamp.fromMillis(Date.now()) },
+        { expiresAt: Timestamp.fromMillis(now), resolved: true, status: 'ended', winners },
         { merge: true }
       );
     } catch (e) {

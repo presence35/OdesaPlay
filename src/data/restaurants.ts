@@ -67,7 +67,11 @@ export function useActiveTournaments() {
           orderBy('expiresAt')
         ),
         snapshot => {
-          setTournaments(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as VenueTournament)));
+          const now = Date.now();
+          setTournaments(snapshot.docs
+            .map(d => ({ id: d.id, ...d.data() } as VenueTournament))
+            .filter(t => !t.expiresAt || t.expiresAt.toMillis() > now)
+          );
           setLoading(false);
         },
         err => {

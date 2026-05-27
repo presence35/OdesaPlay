@@ -730,6 +730,7 @@ export default function Game() {
   const [displayScore, setDisplayScore] = useState(0);
   const scoreRef = useRef(0);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'paused' | 'gameover' | 'win'>('start');
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [activeRoute, setActiveRoute] = useState(ROUTES[0]);
   const [difficulty, setDifficulty] = useState<'slow' | 'fast'>('slow');
@@ -754,12 +755,17 @@ export default function Game() {
   const screenShakeRef = useRef(0);
   const distanceRef = useRef(0);
   const maxScoreRef = useRef(0);
+  const gameStateRef = useRef(gameState);
   const popupsRef = useRef<Popup[]>([]);
   const roadOffsetRef = useRef(0);
   const gameWidthRef = useRef(350);
   const gameHeightRef = useRef(600);
   const laneLimitRef = useRef(0);
   const busYRef = useRef(500);
+  const skyGradRef = useRef<CanvasGradient | null>(null);
+  const roadGradRef = useRef<CanvasGradient | null>(null);
+  const curbGradLRef = useRef<CanvasGradient | null>(null);
+  const curbGradRRef = useRef<CanvasGradient | null>(null);
 
   useEffect(() => {
     const applyConfig = (config: any) => {
@@ -793,6 +799,16 @@ export default function Game() {
           if (window.parent) {
             window.parent.postMessage({ type: 'gameOver', score: scoreRef.current, payload: scoreRef.current }, window.location.origin);
           }
+        });
+      }
+      if (window.Odesa.onPause) {
+        window.Odesa.onPause(() => {
+          if (gameStateRef.current === 'playing') setGameState('paused');
+        });
+      }
+      if (window.Odesa.onResume) {
+        window.Odesa.onResume(() => {
+          if (gameStateRef.current === 'paused') setGameState('playing');
         });
       }
       setIsReady(true);
@@ -1009,11 +1025,7 @@ export default function Game() {
       ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     }
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, '#38bdf8');
-    gradient.addColorStop(0.5, '#7dd3fc');
-    gradient.addColorStop(1, '#bae6fd');
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = skyGradRef.current || '#38bdf8';
     ctx.fillRect(0, 0, w, h);
 
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
@@ -1037,13 +1049,7 @@ export default function Game() {
     const roadRight = w - 56;
     const roadW = roadRight - roadLeft;
 
-    ctx.fillStyle = '#3d4654';
-    ctx.fillRect(roadLeft, 0, roadW, h);
-    const roadGrad = ctx.createLinearGradient(0, 0, 0, h);
-    roadGrad.addColorStop(0, '#3d4654');
-    roadGrad.addColorStop(0.5, '#2d3544');
-    roadGrad.addColorStop(1, '#1f2937');
-    ctx.fillStyle = roadGrad;
+    ctx.fillStyle = roadGradRef.current || '#3d4654';
     ctx.fillRect(roadLeft, 0, roadW, h);
 
     ctx.save();
@@ -1064,18 +1070,11 @@ export default function Game() {
     }
     ctx.restore();
 
-    ctx.fillStyle = '#a8a29e';
+    ctx.fillStyle = curbGradLRef.current || '#a8a29e';
     ctx.fillRect(0, 0, roadLeft, h);
     ctx.fillRect(roadRight, 0, roadLeft, h);
-    const curbGrad = ctx.createLinearGradient(0, 0, roadLeft, 0);
-    curbGrad.addColorStop(0, '#a8a29e');
-    curbGrad.addColorStop(1, '#78716c');
-    ctx.fillStyle = curbGrad;
+    ctx.fillStyle = curbGradRRef.current || '#78716c';
     ctx.fillRect(0, 0, roadLeft, h);
-    const curbGradR = ctx.createLinearGradient(w - roadLeft, 0, w, 0);
-    curbGradR.addColorStop(0, '#78716c');
-    curbGradR.addColorStop(1, '#a8a29e');
-    ctx.fillStyle = curbGradR;
     ctx.fillRect(w - roadLeft, 0, roadLeft, h);
 
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
@@ -1089,7 +1088,8 @@ export default function Game() {
 
     ctx.translate(w / 2, 0);
 
-    const sortedObjects = [...objectsRef.current].sort((a, b) => {
+    const sortedObjects = objectsRef.current;
+    sortedObjects.sort((a, b) => {
       const z: Record<string, number> = { scenery: 1, babushka: 10, passenger: 15, flower: 15, falling_flower: 15, pothole: 15, delivery_bike: 20, explosion: 100 };
       return (z[a.type] || 5) - (z[b.type] || 5);
     });
@@ -1125,11 +1125,6 @@ export default function Game() {
     }
 
     const now = performance.now();
-    popupsRef.current = popupsRef.current.filter(p => {
-      const elapsed = now - p.createdAt;
-      return elapsed < (p.type === 'points' ? 1000 : 1500);
-    });
-
     for (const p of popupsRef.current) {
       const elapsed = now - p.createdAt;
       const dur = p.type === 'points' ? 1000 : 1500;
@@ -1198,7 +1193,7 @@ export default function Game() {
     const busY = busYRef.current;
     const currentBusX = busXRef.current;
 
-    let next = objectsRef.current.map(o => ({...o}));
+    let next = objectsRef.current;
     const newItems: GameObject[] = [];
 
     if (!doorStuckOpenRef.current && time > doorTimerRef.current) {
@@ -1224,11 +1219,14 @@ export default function Game() {
       } else if (obj.hangingOut) {
         obj.x = currentBusX + 22;
         obj.y = busY + 20;
-        if (Math.random() < 0.005) {
+        if (time - (obj as any)._hangTimer > 6000) {
+          (obj as any)._hangTimer = time;
           obj.hangingOut = false;
           obj.missed = true;
           obj.y = gameHeight + 200;
           doorStuckOpenRef.current = false;
+        } else if ((obj as any)._hangTimer === undefined) {
+          (obj as any)._hangTimer = time;
         }
       } else if (obj.type === 'passenger') {
         if (!obj.missed && Math.abs(obj.y - busY) < 300) {
@@ -1422,6 +1420,8 @@ export default function Game() {
           }
           screenShakeRef.current = 20;
         } else if (obj.type === 'pothole') {
+          if ((obj as any)._hit) return true;
+          (obj as any)._hit = true;
           const lost = 3;
           scoreRef.current -= lost;
           setDisplayScore(scoreRef.current);
@@ -1443,6 +1443,7 @@ export default function Game() {
               targetX: currentBusX + 100 + Math.random() * 200
             });
           }
+          return true;
         }
         return false;
       }
@@ -1549,6 +1550,12 @@ export default function Game() {
 
     objectsRef.current = next;
 
+    const now = performance.now();
+    popupsRef.current = popupsRef.current.filter(p => {
+      const elapsed = now - p.createdAt;
+      return elapsed < (p.type === 'points' ? 1000 : 1500);
+    });
+
     if (scoreRef.current > maxScoreRef.current) {
       maxScoreRef.current = scoreRef.current;
     }
@@ -1600,7 +1607,25 @@ export default function Game() {
       gameWidthRef.current = rect.width;
       gameHeightRef.current = rect.height;
       laneLimitRef.current = (rect.width - 96) / 2;
-      busYRef.current = rect.height - 200;
+      busYRef.current = rect.height - 200 + Math.round(rect.height * 0.1);
+      const w = rect.width, h = rect.height;
+      const roadLeft = 56;
+      if (ctx) {
+        skyGradRef.current = ctx.createLinearGradient(0, 0, 0, h);
+        skyGradRef.current.addColorStop(0, '#38bdf8');
+        skyGradRef.current.addColorStop(0.5, '#7dd3fc');
+        skyGradRef.current.addColorStop(1, '#bae6fd');
+        roadGradRef.current = ctx.createLinearGradient(0, 0, 0, h);
+        roadGradRef.current.addColorStop(0, '#3d4654');
+        roadGradRef.current.addColorStop(0.5, '#2d3544');
+        roadGradRef.current.addColorStop(1, '#1f2937');
+        curbGradLRef.current = ctx.createLinearGradient(0, 0, roadLeft, 0);
+        curbGradLRef.current.addColorStop(0, '#a8a29e');
+        curbGradLRef.current.addColorStop(1, '#78716c');
+        curbGradRRef.current = ctx.createLinearGradient(w - roadLeft, 0, w, 0);
+        curbGradRRef.current.addColorStop(0, '#78716c');
+        curbGradRRef.current.addColorStop(1, '#a8a29e');
+      }
     };
     const observer = new ResizeObserver(resizeCanvas);
     observer.observe(container);
@@ -1666,6 +1691,13 @@ export default function Game() {
               </svg>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Pause overlay */}
+      {gameState === 'paused' && (
+        <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+          <div className="text-white text-5xl font-black tracking-widest drop-shadow-lg select-none">PAUSED</div>
         </div>
       )}
 

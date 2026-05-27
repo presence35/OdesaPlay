@@ -17,6 +17,12 @@ export function resumeAudioContext(): void {
   }
 }
 
+export function suspendAudioContext(): void {
+  if (ctx && ctx.state === 'running') {
+    ctx.suspend();
+  }
+}
+
 export function isAudioEnabled(): boolean {
   return ctx != null && ctx.state !== 'closed';
 }
@@ -26,4 +32,27 @@ export function disposeAudioContext(): void {
     ctx.close();
     ctx = null;
   }
+}
+
+// Global sound pauser registry — lets GameHub pause/resume all non-oscillator audio (e.g. shooter's <audio> elements) in one call
+interface SoundPauser {
+  pause(): void;
+  resume(): void;
+}
+let pausers: SoundPauser[] = [];
+
+export function registerSoundPauser(p: SoundPauser): void {
+  if (!pausers.includes(p)) pausers.push(p);
+}
+
+export function unregisterSoundPauser(p: SoundPauser): void {
+  pausers = pausers.filter(x => x !== p);
+}
+
+export function pauseAllSounds(): void {
+  pausers.forEach(p => p.pause());
+}
+
+export function resumeAllSounds(): void {
+  pausers.forEach(p => p.resume());
 }

@@ -90,9 +90,17 @@ export default function TriviaGame() {
   const [answers, setAnswers] = useState([]);
   const [animating, setAnimating] = useState(false);
 
-  useEffect(() => {
-    scoreRef.current = score;
-  }, [score]);
+  const [paused, setPaused] = useState(false);
+  const pausedAtRef = useRef(null);
+  const [cheatNotice, setCheatNotice] = useState(null);
+  const screenRef = useRef(screen);
+  const questionsRef = useRef(questions);
+  const currentIdxRef = useRef(currentIdx);
+
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
+  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
   useEffect(() => {
     if (window.Odesa) {
@@ -104,6 +112,35 @@ export default function TriviaGame() {
         if (window.Odesa) window.Odesa.gameOver(scoreRef.current);
         setScreen("results");
       });
+      if (window.Odesa.onPause) {
+        window.Odesa.onPause(() => {
+          if (screenRef.current === 'quiz') {
+            pausedAtRef.current = Date.now();
+            setPaused(true);
+          }
+        });
+      }
+      if (window.Odesa.onResume) {
+        window.Odesa.onResume(() => {
+          if (pausedAtRef.current) {
+            const elapsed = Date.now() - pausedAtRef.current;
+            pausedAtRef.current = null;
+            setPaused(false);
+            if (elapsed >= 10000 && screenRef.current === 'quiz') {
+              const nextIdx = currentIdxRef.current + 1;
+              const qs = questionsRef.current;
+              if (nextIdx < qs.length) {
+                setCurrentIdx(nextIdx);
+                setSelected(null);
+                setRevealed(false);
+                setCheatNotice('Looks like you went searching — here\'s a fresh question!');
+                setTimeout(() => setCheatNotice(null), 4000);
+              }
+            }
+          }
+        });
+      }
+      if (window.Odesa.ready) window.Odesa.ready();
     }
   }, []);
 
@@ -406,7 +443,13 @@ export default function TriviaGame() {
 
         {/* ===== QUIZ ===== */}
         {screen === "quiz" && q && (
-          <div className="fade-in" style={{ paddingTop: 10 }}>
+          <div className="fade-in" style={{ paddingTop: 10, position: 'relative' }}>
+            {paused && (
+              <div className="fade-in" style={{ position: 'absolute', inset: 0, zIndex: 200, background: 'rgba(10,10,26,0.92)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 10 }}>
+                <p style={{ fontFamily: "'Cinzel', serif", fontSize: 32, fontWeight: 700, color: '#c8a860', letterSpacing: 4 }}>PAUSED</p>
+                <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 14, color: '#9a8a68', marginTop: 12 }}>Tab back to continue</p>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                 <span style={{ fontSize: 12, fontFamily: "'Cinzel', serif", color: DIFF_COLORS[q.difficulty], letterSpacing: 1, background: `${DIFF_COLORS[q.difficulty]}11`, padding: "4px 10px", borderRadius: 20, border: `1px solid ${DIFF_COLORS[q.difficulty]}`, whiteSpace: "nowrap" }}>
@@ -454,6 +497,14 @@ export default function TriviaGame() {
               <div className="fade-in" style={{ background: selected === q.answer ? "rgba(74,222,128,0.07)" : "rgba(248,113,113,0.07)", border: `1px solid ${selected === q.answer ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}`, borderRadius: 8, padding: 18, marginTop: 4, marginBottom: 16 }}>
                 <p style={{ fontSize: 15, lineHeight: 1.6, color: "#c8b898", fontFamily: "'Roboto', sans-serif" }}>
                   {typeof q.fact === 'object' ? q.fact[lang] : q.fact}
+                </p>
+              </div>
+            )}
+
+            {cheatNotice && (
+              <div className="fade-in" style={{ background: 'rgba(200,150,10,0.1)', border: '1px solid rgba(200,150,10,0.3)', borderRadius: 8, padding: '14px 18px', marginTop: 8, marginBottom: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 14, color: '#e8b420', fontFamily: "'Roboto', sans-serif", fontWeight: 500 }}>
+                  {cheatNotice}
                 </p>
               </div>
             )}

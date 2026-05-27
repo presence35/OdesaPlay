@@ -1,3 +1,5 @@
+import type { Container } from 'pixi.js';
+
 export type Weapon = 'water' | 'banana' | 'ak47';
 
 export interface Vehicle {
@@ -45,9 +47,11 @@ export interface Projectile {
   progress: number;
   speed: number;
   type: 'water' | 'banana' | 'bullet';
+  container: Container;
 }
 
 export interface GameState {
+  silenceLevel: number;
   score: number;
   vehicles: Vehicle[];
   particles: Particle[];

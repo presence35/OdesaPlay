@@ -81,11 +81,16 @@ const triggerHaptic = (type: 'light' | 'heavy') => {
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [gameState, setGameState] = useState<GameState>('menu');
+  const gameStateRef = useRef(gameState);
   const [finalScore, setFinalScore] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
   const [lang, setLang] = useState<Lang>('uk');
   const [isReady, setIsReady] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy'|'hard'>('easy');
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
 
   useEffect(() => {
     if (window.Odesa?.getConfig) {
@@ -118,6 +123,22 @@ export default function App() {
         window.Odesa.onStop(stopHandler);
       }
       if (window.Odesa.ready) window.Odesa.ready();
+      if (window.Odesa.onPause) {
+        window.Odesa.onPause(() => {
+          if (gameStateRef.current === 'playing') {
+            pausedRef.current = true;
+            setPaused(true);
+          }
+        });
+      }
+      if (window.Odesa.onResume) {
+        window.Odesa.onResume(() => {
+          if (pausedRef.current) {
+            pausedRef.current = false;
+            setPaused(false);
+          }
+        });
+      }
       return () => {
         if ((window.Odesa as any)?._removeStopListener) {
           (window.Odesa as any)._removeStopListener(stopHandler);
@@ -634,8 +655,10 @@ export default function App() {
       };
 
       app.ticker.add(() => {
-        updatePhysics(performance.now());
-        syncVisuals();
+        if (!pausedRef.current) {
+          updatePhysics(performance.now());
+          syncVisuals();
+        }
       });
       app.ticker.maxFPS = 60;
 
@@ -683,6 +706,11 @@ export default function App() {
             </motion.div>
           )}
           </AnimatePresence>
+          {paused && (
+            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+              <div className="text-white text-5xl font-black tracking-widest drop-shadow-lg select-none">PAUSED</div>
+            </div>
+          )}
           {gameState === 'gameover' && (
             <GameEndScreen
               score={finalScore}

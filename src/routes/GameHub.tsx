@@ -21,6 +21,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { db, auth, getUserId, ensureAnonymousAuth, requestFcmToken, onForegroundMessage } from '../firebase';
 import { translations, Language } from '../language';
 import { useAudio, TrackKey } from '../utils/audio';
+import { suspendAudioContext, pauseAllSounds, resumeAllSounds } from '../utils/audioContext';
 import { useFullscreenOnRotate } from '../utils/fullscreen';
 import { useVenues, useActiveTournaments, useTournamentLeaderboard } from '../data/restaurants';
 import { showToast } from '../components/Toast';
@@ -59,9 +60,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
 
-  const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || profile.nickname?.toLowerCase() === 'bodi#';
+  const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || /^bodi\d+$/i.test(profile.nickname ?? '');
   
   const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume } = useAudio();
+  const musicEnabledRef = useRef(musicEnabled);
+  useEffect(() => { musicEnabledRef.current = musicEnabled; }, [musicEnabled]);
 
   const [autoPlayMusic, setAutoPlayMusic] = useState(() => {
     return localStorage.getItem('odesa_auto_play_music') !== 'false';
@@ -568,8 +571,17 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    const triggerPause = () => (window as any).Odesa?._triggerPause?.();
-    const triggerResume = () => (window as any).Odesa?._triggerResume?.();
+    const triggerPause = () => {
+      (window as any).Odesa?._triggerPause?.();
+      stopMusic();
+      pauseAllSounds();
+      suspendAudioContext();
+    };
+    const triggerResume = () => {
+      (window as any).Odesa?._triggerResume?.();
+      resumeAllSounds();
+      if (musicEnabledRef.current) playMusic(true);
+    };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -937,7 +949,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         </div>
       </header>
 
-      <main className={`px-5 py-5 pt-32 sm:pt-24 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
+      <main className={`px-5 py-5 pt-14 sm:pt-14 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             {/* Active Tournaments */}
@@ -945,10 +957,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               <section>
                 <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
-                  <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest">{activeTournaments.length} {t.liveTournaments}</span>
+                  <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {t.liveTournaments}</span>
                   {t.activeTournaments}
                 </h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x snap-mandatory scrollbar-hide">
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 snap-x snap-mandatory scrollbar-hide">
                   {activeTournaments.map(tourney => {
                     const tourneyGame = gamesList.find(g => g.id === tourney.gameId);
                     const playerEntry = tournamentEntries.find(e => e.uid === getUserId());

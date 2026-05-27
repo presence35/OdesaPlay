@@ -1,4 +1,4 @@
-import { getAudioContext, resumeAudioContext } from '../../utils/audioContext';
+import { getAudioContext, resumeAudioContext, registerSoundPauser, unregisterSoundPauser } from '../../utils/audioContext';
 
 type SoundName =
   | 'car_motor'
@@ -26,16 +26,42 @@ export class SoundGenerator {
   private audioCache: Partial<Record<SoundName, HTMLAudioElement>> = {};
   private bgAudio: HTMLAudioElement | null = null;
   private activeLoops: Map<string, HTMLAudioElement> = new Map();
+  private pausedLoopIds: Set<string> = new Set();
 
   setSfxEnabled(enabled: boolean) {
     this.sfxEnabled = enabled;
     if (!enabled) this.stopAll();
   }
 
+  pause() {
+    if (this.bgAudio && !this.bgAudio.paused) {
+      this.bgAudio.pause();
+    }
+    this.activeLoops.forEach((el, id) => {
+      el.pause();
+      this.pausedLoopIds.add(id);
+    });
+    for (const pool of Object.values(this.poolCache)) {
+      if (pool) pool.forEach(el => { if (!el.paused) { el.pause(); el.currentTime = 0; } });
+    }
+  }
+
+  resume() {
+    if (this.bgAudio && this.bgAudio.paused && this.sfxEnabled) {
+      this.bgAudio.play().catch(() => {});
+    }
+    this.pausedLoopIds.forEach(id => {
+      const el = this.activeLoops.get(id);
+      if (el && el.paused) el.play().catch(() => {});
+    });
+    this.pausedLoopIds.clear();
+  }
+
   stopAll() {
     this.stopBackground();
     this.activeLoops.forEach(el => el.pause());
     this.activeLoops.clear();
+    this.pausedLoopIds.clear();
     for (const pool of Object.values(this.poolCache)) {
       if (pool) pool.forEach(el => { el.pause(); el.currentTime = 0; });
     }
@@ -60,6 +86,10 @@ export class SoundGenerator {
       }
     }
     resumeAudioContext();
+    if (!this.registered) {
+      registerSoundPauser(this);
+      this.registered = true;
+    }
     // Preload mp3s on first init
     if (Object.keys(this.audioCache).length === 0) {
       this.preload();
@@ -67,6 +97,7 @@ export class SoundGenerator {
   }
 
   private poolCache: Partial<Record<SoundName, HTMLAudioElement[]>> = {};
+  private registered: boolean = false;
 
   private preload() {
     for (const name of SOUND_NAMES) {
