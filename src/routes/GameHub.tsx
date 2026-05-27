@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
 import {
   collection, doc, onSnapshot, addDoc, setDoc, deleteDoc, updateDoc,
-  serverTimestamp, increment, getDoc, getDocs, query, where, orderBy, limit
+  serverTimestamp, increment, getDoc, getDocs, query, where, orderBy, limit, startAfter
 } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -135,7 +135,33 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [tournamentPlayId, setTournamentPlayId] = useState<string | null>(null);
   const { entries: tournamentEntries } = useTournamentLeaderboard(tournamentPlayId);
   const notifiedTournamentsRef = useRef<Set<string>>(new Set());
-  const [playerPrizes, setPlayerPrizes] = useState<any[]>([]);
+  const [recentPrizes, setRecentPrizes] = useState<any[]>([]);
+  const [olderPrizes, setOlderPrizes] = useState<any[]>([]);
+  const [hasMorePrizes, setHasMorePrizes] = useState(true);
+  const [loadingMorePrizes, setLoadingMorePrizes] = useState(false);
+  const lastPrizeDocRef = useRef<any>(null);
+  const playerPrizes = [...recentPrizes, ...olderPrizes];
+  const loadMorePrizes = async () => {
+    if (!lastPrizeDocRef.current || loadingMorePrizes) return;
+    setLoadingMorePrizes(true);
+    try {
+      const q = query(
+        collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'),
+        where('uid', '==', user?.uid || ''),
+        orderBy('timestamp', 'desc'),
+        startAfter(lastPrizeDocRef.current),
+        limit(20)
+      );
+      const snapshot = await getDocs(q);
+      const more = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setOlderPrizes(prev => [...prev, ...more]);
+      lastPrizeDocRef.current = snapshot.docs[snapshot.docs.length - 1] || null;
+      setHasMorePrizes(snapshot.docs.length === 20);
+    } catch (e) {
+      console.warn('load more prizes error:', e);
+    }
+    setLoadingMorePrizes(false);
+  };
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -327,14 +353,18 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       error => console.warn('recruit count listener error:', error)
     );
 
+    const cutoffDate = new Date(Date.now() - 7 * 86400000);
     const unsub6 = onSnapshot(
       query(
         collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'),
-        where('uid', '==', user.uid)
+        where('uid', '==', user.uid),
+        where('timestamp', '>=', cutoffDate),
+        orderBy('timestamp', 'desc')
       ),
       snapshot => {
-        const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setPlayerPrizes(all);
+        const recent = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRecentPrizes(recent);
+        lastPrizeDocRef.current = snapshot.docs[snapshot.docs.length - 1] || null;
       },
       error => console.warn('player prizes listener error:', error)
     );
@@ -1276,6 +1306,60 @@ onClick={() => {
 
 
 
+                {/* My Prizes */}
+                  <div className="mt-8 text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-slate-500 ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
+                    </h3>
+                    {playerPrizes.length === 0 ? (
+                      <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noPrizes}</div>
+                    ) : (
+                    <>
+                    <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                      {[...playerPrizes].sort((a: any, b: any) => {
+                        const ta = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || 0);
+                        const tb = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
+                        return tb - ta;
+                      }).map(p => {
+                        const expired = p.expiresAt < Date.now();
+                        const redeemed = p.redeemed;
+                        const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
+                        const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+                        const prizeGame = gamesList.find(g => g.title[lang] === p.gameTitle);
+                        return (
+                          <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                            <div>
+                              <div className="text-sm font-black text-yellow-400">{p.rewardType}</div>
+                              <div className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} pts</div>
+                              <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
+                            </div>
+                            <div className="text-right">
+                              {p.code && !redeemed && (
+                                <div className="text-lg font-black text-green-400 font-mono tracking-widest">{p.code}</div>
+                              )}
+                              <div className={`text-[9px] font-black uppercase tracking-widest ${
+                                redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
+                              }`}>
+                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : t.claimCode.replace('{code}', p.code || '')}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {hasMorePrizes && (
+                      <button
+                        onClick={loadMorePrizes}
+                        disabled={loadingMorePrizes}
+                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors bg-slate-900/30 rounded-xl border border-white/5 disabled:opacity-50"
+                      >
+                        {loadingMorePrizes ? 'Loading...' : t.loadAll}
+                      </button>
+                    )}
+                    </>
+                    )}
+                  </div>
+
                 {/* Profile High Scores */}
                 <div className="mt-8 text-left space-y-4">
                   <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">{t.highScores}</h3>
@@ -1432,48 +1516,6 @@ onClick={() => {
                     })}
                   </div>
                 </div>
-
-                {/* My Prizes */}
-                  <div className="mt-8 text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}
-                    </h3>
-                    {playerPrizes.length === 0 ? (
-                      <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noPrizes}</div>
-                    ) : (
-                    <div className="space-y-3">
-                      {[...playerPrizes].sort((a: any, b: any) => {
-                        const ta = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || 0);
-                        const tb = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
-                        return tb - ta;
-                      }).map(p => {
-                        const expired = p.expiresAt < Date.now();
-                        const redeemed = p.redeemed;
-                        const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
-                        const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
-                        const expiryDate = new Date(p.expiresAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return (
-                          <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
-                            <div>
-                              <div className="text-sm font-black text-yellow-400">{p.rewardType}</div>
-                              <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
-                            </div>
-                            <div className="text-right">
-                              {p.code && !expired && !redeemed && (
-                                <div className="text-lg font-black text-green-400 font-mono tracking-widest">{p.code}</div>
-                              )}
-                              <div className={`text-[9px] font-black uppercase tracking-widest ${
-                                redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
-                              }`}>
-                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${expiryDate}` : t.claimCode.replace('{code}', p.code || '')}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    )}
-                  </div>
 
                 {/* Music Settings */}
                 <div className="mt-8 text-left space-y-4">
