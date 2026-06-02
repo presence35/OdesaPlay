@@ -24,7 +24,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  showToast('Connection error. Please check your connection and try again.');
 }
 
 export function transliterate(text: string) {
@@ -96,7 +96,8 @@ export function calculatePlayerStats(
   const userId = getUserId();
   const userRecords = leaderboards.filter(l => l.uid === userId);
   const totalGamesPlayed = userRecords.reduce((acc, r) => acc + (r.playCount || 1), 0);
-  const checkins = Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length;
+  let checkins = 0;
+  try { checkins = Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length; } catch {}
   const recruits = recruitCount ?? Object.values(allProfiles).filter((p: any) => p.referredBy === userId).length;
   const marshrutkaHighScore = userRecords.filter(l => l.gameId === 'marshrutka').reduce((max, l) => Math.max(max, l.score || 0), 0);
   const droneHighScore = userRecords.filter(l => l.gameId === 'drones').reduce((max, l) => Math.max(max, l.score || 0), 0);
@@ -281,8 +282,8 @@ export function getTimeAgo(timestamp: any, lang: Language) {
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(mins / 60);
   const days = Math.floor(hours / 24);
-  if (days > 0) return t.timeAgoDays.replace('{n}', days.toString());
-  if (hours > 0) return t.timeAgoHours.replace('{n}', hours.toString());
-  if (mins > 0) return t.timeAgoMins.replace('{n}', mins.toString());
+  if (days > 0) return (days === 1 ? t.timeAgoDay : t.timeAgoDays).replace('{n}', days.toString());
+  if (hours > 0) return (hours === 1 ? t.timeAgoHour : t.timeAgoHours).replace('{n}', hours.toString());
+  if (mins > 0) return (mins === 1 ? t.timeAgoMin : t.timeAgoMins).replace('{n}', mins.toString());
   return t.timeAgoJustNow;
 }

@@ -14,6 +14,7 @@ const VAPID_KEY = 'BPijC0ZRLR51O0MA1TKswPAmdjQDuhLM_XP5LmJQQuJQY2eK4M9arkXOwq6Dp
 
 export const requestFcmToken = async (): Promise<string | null> => {
   try {
+    if (typeof Notification === 'undefined') return null;
     const messaging = getMessaging(app);
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;

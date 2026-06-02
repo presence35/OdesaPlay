@@ -8,7 +8,7 @@ import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
   Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
   Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
-  Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle
+   Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -56,6 +56,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [lang, setLang] = useState<Language>(() => {
     return (localStorage.getItem('odesa_lang') as Language) || 'uk';
   });
+  const [showLangPicker, setShowLangPicker] = useState(() => !localStorage.getItem('odesa_lang'));
+  const pickLang = (l: Language) => { setLang(l); setShowLangPicker(false); };
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
@@ -126,7 +128,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [recruitCount, setRecruitCount] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
-    droneAlerts: false, gameReminders: false, venueSpecials: false
+    droneAlerts: false, gameReminders: false, venueSpecials: false, tournamentLaunches: false
   });
   const [isRequestingNotif, setIsRequestingNotif] = useState(false);
 
@@ -134,6 +136,23 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const { tournaments: activeTournaments } = useActiveTournaments();
   const [tournamentPlayId, setTournamentPlayId] = useState<string | null>(null);
   const { entries: tournamentEntries } = useTournamentLeaderboard(tournamentPlayId);
+  const [tournamentEntryMap, setTournamentEntryMap] = useState<Record<string, any[]>>({});
+  useEffect(() => {
+    const unsubs: (() => void)[] = [];
+    activeTournaments.forEach(t => {
+      const unsub = onSnapshot(
+        query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards'), where('tournamentId', '==', t.id)),
+        snap => {
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as any);
+          all.sort((a, b) => ((b.tournamentScore ?? b.score) || 0) - ((a.tournamentScore ?? a.score) || 0));
+          setTournamentEntryMap(prev => ({ ...prev, [t.id]: all.slice(0, 50) }));
+        },
+        err => console.error('tournament leaderboard error', err)
+      );
+      unsubs.push(unsub);
+    });
+    return () => unsubs.forEach(u => u());
+  }, [activeTournaments]);
   const notifiedTournamentsRef = useRef<Set<string>>(new Set());
   const [recentPrizes, setRecentPrizes] = useState<any[]>([]);
   const [olderPrizes, setOlderPrizes] = useState<any[]>([]);
@@ -141,6 +160,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [loadingMorePrizes, setLoadingMorePrizes] = useState(false);
   const lastPrizeDocRef = useRef<any>(null);
   const playerPrizes = [...recentPrizes, ...olderPrizes];
+  const tournamentWins = playerPrizes.filter(p => p.tournamentId && !p.redeemed && p.expiresAt > Date.now());
   const loadMorePrizes = async () => {
     if (!lastPrizeDocRef.current || loadingMorePrizes) return;
     setLoadingMorePrizes(true);
@@ -195,6 +215,40 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   }, [musicEnabled, activeTracks]);
 
   const { requestFS, isLandscape, isFullscreen, isWrongOrientation } = useFullscreenOnRotate(!!activeGame, activeGame?.orientation);
+
+  const [isLandscapeMode, setIsLandscapeMode] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(() => window.matchMedia('(pointer: coarse)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const handler = (e: MediaQueryListEvent) => setIsMobileDevice(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscapeMode(window.matchMedia('(orientation: landscape)').matches);
+    };
+
+    const screenOrientation = (screen as any).orientation || (screen as any).msOrientation || null;
+    if (screenOrientation?.addEventListener) {
+      screenOrientation.addEventListener('change', checkOrientation);
+    } else {
+      window.matchMedia('(orientation: landscape)').addEventListener('change', checkOrientation);
+    }
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+
+    return () => {
+      if (screenOrientation?.removeEventListener) {
+        screenOrientation.removeEventListener('change', checkOrientation);
+      } else {
+        window.matchMedia('(orientation: landscape)').removeEventListener('change', checkOrientation);
+      }
+      window.removeEventListener('resize', checkOrientation);
+    };
+  }, []);
 
   // Profile Editing State
   const [isEditing, setIsEditing] = useState(false);
@@ -471,10 +525,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             updateData.tournamentScore = score;
           }
 
-          if (!currentRecord || score > currentRecord.score) {
-            updateData.score = score;
-            updateData.timestamp = serverTimestamp();
-          }
+          updateData.score = !currentRecord || score > currentRecord.score ? score : currentRecord.score;
+          updateData.timestamp = serverTimestamp();
 
           setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards', recordId), updateData, { merge: true }).catch(err => {
             handleFirestoreError(err, OperationType.WRITE, `leaderboards/${recordId}`);
@@ -734,7 +786,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       tier, 
       timestamp: serverTimestamp(), 
       expiresAt: Date.now() + 300000,
-      uid: getUserId()
+      uid: getUserId(),
+      nickname: profile.nickname || `HERO_${getUserId().substring(0,8)}`
     };
     try {
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'), claim);
@@ -750,7 +803,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const resolveTournament = async (tourney: VenueTournament) => {
     if (tourney.resolved || tourney.status !== 'active') return;
     const now = Date.now();
-    if (tourney.expiresAt?.toMillis() > now) return;
+    if (tourney.expiresAt?.toMillis() + 300000 > now) return;
     try {
       const q = query(
         collection(db, 'artifacts', APP_ID, 'public', 'data', 'leaderboards'),
@@ -781,6 +834,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           timestamp: serverTimestamp(),
           expiresAt: w.claimExpiresAt,
           uid: w.uid,
+          nickname: w.nickname,
           tournamentId: tourney.id,
         });
       }
@@ -791,7 +845,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       }, { merge: true });
       if (winners.some(w => w.uid === getUserId())) {
         const myWin = winners.find(w => w.uid === getUserId());
-        showToast(`🎉 ${t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName)}`);
+        const msg = t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName);
+        showToast(`🎉 ${msg}`);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(t.tournamentWonTitle, { body: msg, icon: '/favicon.png' });
+        }
       }
     } catch (e) {
       console.error('Failed to resolve tournament', e);
@@ -803,7 +861,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     if (activeTournaments.length === 0) return;
     const checkAndResolve = () => {
       for (const tourney of activeTournaments) {
-        if (tourney.expiresAt?.toMillis() <= Date.now() && !tourney.resolved) {
+        if (tourney.expiresAt?.toMillis() + 300000 <= Date.now() && !tourney.resolved) {
           resolveTournament(tourney);
         }
       }
@@ -822,7 +880,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       if (notifiedTournamentsRef.current.has(tourney.id)) continue;
       if (tourney.winners.some(w => w.uid === userId)) {
         notifiedTournamentsRef.current.add(tourney.id);
-        showToast(`🎉 ${t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName)}`);
+        const msg = t.tournamentWon.replace('{prize}', tourney.prize).replace('{venue}', tourney.venueName);
+        showToast(`🎉 ${msg}`);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(t.tournamentWonTitle, { body: msg, icon: '/favicon.png' });
+        }
       }
     }
   }, [activeTournaments, t]);
@@ -899,18 +961,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               </div>
 
             </header>
-            {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying)}
-            {isWrongOrientation && (
-              <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-8 text-center">
-                <div className="text-6xl mb-6">🔄</div>
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  {activeGame?.orientation === 'landscape' ? t.rotateLandscape : t.rotatePortrait}
-                </h2>
-                <p className="text-lg text-white/70 max-w-xs">
-                  {activeGame?.orientation === 'landscape' ? t.rotateLandscapeDesc : t.rotatePortraitDesc}
-                </p>
-              </div>
-            )}
+            <div className="flex-1 relative">
+              {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying)}
+              {isWrongOrientation && (
+                <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-8 text-center">
+                  <div className="text-6xl mb-6">🔄</div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {activeGame?.orientation === 'landscape' ? t.rotateLandscape : t.rotatePortrait}
+                  </h2>
+                  <p className="text-lg text-white/70 max-w-xs">
+                    {activeGame?.orientation === 'landscape' ? t.rotateLandscapeDesc : t.rotatePortraitDesc}
+                  </p>
+                </div>
+              )}
+            </div>
 
           </motion.div>
         )}
@@ -953,17 +1017,21 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         )}
       </AnimatePresence>
 
+      {!activeGame && isMobileDevice && isLandscapeMode && (
+        <div className="fixed inset-0 z-[55] bg-black/90 flex flex-col items-center justify-center p-8 text-center">
+          <div className="text-6xl mb-6">🔄</div>
+          <h2 className="text-2xl font-bold text-white mb-2">{t.rotatePortrait}</h2>
+          <p className="text-lg text-white/70 max-w-xs">{t.rotatePortraitDesc}</p>
+        </div>
+      )}
+
       <header className="px-3 py-1.5 flex flex-wrap justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
           <img src="/images/logo_full.png" alt="OdesaPlay" className="h-8 w-auto" />
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center rounded-full p-0.5 gap-1">
-            <button onClick={() => setLang('uk')} className={`w-7 h-7 flex items-center justify-center rounded-full text-lg transition-all ${lang === 'uk' ? 'bg-blue-600/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇺🇦</button>
-            <button onClick={() => setLang('en')} className={`w-7 h-7 flex items-center justify-center rounded-full text-lg transition-all ${lang === 'en' ? 'bg-red-500/20 grayscale-0' : 'grayscale opacity-50 hover:opacity-100'}`}>🇬🇧</button>
-          </div>
-          <button 
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
             onClick={toggleMusic}
             className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-slate-500 hover:text-white bg-slate-900'}`}
             title="Toggle Music"
@@ -982,53 +1050,74 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       <main className={`px-5 py-5 pt-14 sm:pt-14 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-            {/* Active Tournaments */}
+            {showLangPicker && (
+              <div className="flex items-center justify-center gap-8 pt-2">
+                <button onClick={() => pickLang('uk')} className="flex flex-col items-center gap-2 group">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-b from-blue-600/20 to-yellow-400/20 border-2 border-yellow-400/40 flex items-center justify-center text-4xl shadow-lg group-hover:border-yellow-400 transition-colors">
+                    🇺🇦
+                  </div>
+                  <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
+                    Українська
+                  </span>
+                </button>
+                <button onClick={() => pickLang('en')} className="flex flex-col items-center gap-2 group">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400/40 flex items-center justify-center text-4xl shadow-lg group-hover:border-blue-400 transition-colors">
+                    🇺🇸
+                  </div>
+                  <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
+                    English
+                  </span>
+                </button>
+              </div>
+            )}
+            {/* Active Tournaments — one-liner linking to venues tab */}
             {activeTournaments.length > 0 && (
+              <button onClick={() => setView('venues')} className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600/20 to-yellow-400/20 p-4 rounded-[24px] border border-yellow-400/30 cursor-pointer active:scale-[0.97] transition-transform shadow-lg shadow-blue-600/10">
+                <Trophy className="w-6 h-6 text-yellow-400 shrink-0" />
+                <span className="font-black text-yellow-400">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}...</span>
+              </button>
+            )}
+
+            {/* You Won section */}
+            {tournamentWins.length > 0 && (
               <section>
                 <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
-                  <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {t.liveTournaments}</span>
-                  {t.activeTournaments}
+                  {t.notice}
                 </h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 snap-x snap-mandatory scrollbar-hide">
-                  {activeTournaments.map(tourney => {
-                    const tourneyGame = gamesList.find(g => g.id === tourney.gameId);
-                    const playerEntry = tournamentEntries.find(e => e.uid === getUserId());
-                    const playerRank = playerEntry ? tournamentEntries.findIndex(e => e.uid === getUserId()) + 1 : null;
-                    const isWinning = playerRank !== null && playerRank <= tourney.topWinners;
+                <div className="space-y-3">
+                  {tournamentWins.map(p => {
+                    const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
+                    const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+                    const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
                     return (
                       <div
-                        key={tourney.id}
-                        onClick={() => {
-                          if (tourneyGame) {
-                            setTournamentPlayId(tourney.id);
-                            setActiveGame(tourneyGame);
-                            requestFS();
-                          }
-                        }}
-                        className="snap-start shrink-0 w-56 bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-5 rounded-[24px] border border-yellow-400/20 cursor-pointer active:scale-95 transition-transform"
+                        key={p.id}
+                        onClick={() => setActiveReward(p)}
+                        className="bg-gradient-to-br from-blue-600/20 to-blue-400/10 p-5 rounded-[24px] border border-blue-500/40 cursor-pointer active:scale-95 transition-transform shadow-lg shadow-blue-600/10"
                       >
-                        <div className="text-xs font-black text-yellow-400 uppercase tracking-widest mb-1 line-clamp-2 h-8 overflow-hidden">{tourney.venueName}</div>
-                        <div className="text-lg font-black text-white leading-tight mb-2">{tourney.prize}</div>
-                        {playerRank !== null && (
-                          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            isWinning ? 'bg-yellow-400/20 text-yellow-400' : 'bg-slate-800 text-slate-400'
-                          }`}>
-                            #{playerRank} {isWinning ? '🏆' : ''}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">🏆</span>
+                            <div>
+                              <div className="text-[10px] font-black text-green-400 uppercase tracking-widest">{t.tournament}</div>
+                              <div className="text-lg font-black text-white leading-tight">{p.rewardType}</div>
+                            </div>
                           </div>
-                        )}
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
-                          <div className="flex items-center gap-1">
-                            {tourneyGame?.icon && <img src={tourneyGame.icon} alt="" className="w-4 h-4 object-contain" />}
-                            <span className="text-[10px] font-bold text-slate-400">{tourneyGame?.title[lang] || tourney.gameId}</span>
+                          <div className="text-right">
+                            <div className="text-xl font-black text-green-400 font-mono tracking-widest">{p.code}</div>
+                            <div className="text-[8px] text-green-500/70 font-black uppercase tracking-wider">{t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`)}</div>
                           </div>
-                          <div className="text-[10px] text-slate-500 font-bold font-mono tabular-nums">
-                            {(() => {
-                              const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
-                              const m = Math.floor(diff / 60000);
-                              const s = Math.floor((diff % 60000) / 1000);
-                              return `${m}:${s.toString().padStart(2, '0')}`;
-                            })()}
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                            {prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}
+                            {prizeGame?.title[lang] || p.gameTitle}
+                            <span className="text-slate-600">·</span>
+                            {venueName}
+                          </div>
+                          <div className="text-[9px] text-yellow-400 font-black uppercase tracking-wider">
+                            {p.score} {p.score === 1 ? 'pt' : 'pts'}
                           </div>
                         </div>
                       </div>
@@ -1044,7 +1133,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                   {gamesList.filter(g => g.cat === cat).map(game => (
                     <div 
                       key={game.id} 
-                      onClick={() => { if (game.comingSoon) return; if ((game as any).isRoute) { setView('venues'); return; } setActiveGame(game); requestFS(); }} 
+                      onClick={() => { if (game.comingSoon) return; if ((game as any).isRoute) { setView('venues'); return; } const mt = activeTournaments.find(t => t.gameId === game.id && t.venueId === venueId); if (mt) setTournamentPlayId(mt.id); setActiveGame(game); requestFS(); }} 
                       className={`game-card w-full aspect-[4/5] rounded-[32px] relative overflow-hidden shadow-2xl border-none flex items-center justify-center bg-transparent ${game.comingSoon ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer transition-transform active:scale-95'}`}
                     >
                       <img 
@@ -1208,6 +1297,63 @@ onClick={() => {
 
         {view === 'venues' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+             {/* Active Tournaments */}
+             {activeTournaments.length > 0 && (
+               <section>
+                 <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
+                   <Trophy className="w-5 h-5 text-yellow-400" />
+                   <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}</span>
+                   {t.activeTournaments}
+                 </h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {activeTournaments.map(tourney => {
+                      const tourneyGame = gamesList.find(g => g.id === tourney.gameId);
+                      const entries = tournamentEntryMap[tourney.id] || [];
+                      const playerEntry = entries.find(e => e.uid === getUserId());
+                      const playerRank = playerEntry ? entries.findIndex(e => e.uid === getUserId()) + 1 : null;
+                      const isWinning = playerRank !== null && playerRank <= tourney.topWinners;
+                      return (
+                        <div
+                          key={tourney.id}
+                          onClick={() => {
+                            if (tourneyGame) {
+                              setTournamentPlayId(tourney.id);
+                              setActiveGame(tourneyGame);
+                              requestFS();
+                            }
+                          }}
+                          className="bg-gradient-to-br from-blue-600/10 to-blue-400/5 p-4 rounded-[24px] border border-blue-500/20 cursor-pointer active:scale-95 transition-transform"
+                        >
+                          <div className="text-[10px] font-black text-yellow-400 text-center uppercase tracking-widest mb-1 line-clamp-2 h-8 overflow-hidden leading-[14px]">{tourney.venueName}</div>
+                          <div className="text-base font-black text-white leading-tight mb-2">{tourney.prize}</div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold mb-2">
+                            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{entries.length}</span>
+                            {playerRank !== null && (
+                              <span className={`text-[11px] font-black ${isWinning ? 'text-yellow-400' : 'text-slate-500'}`}>
+                                #{playerRank}{isWinning ? ' 🏆' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                            <div className="flex items-center gap-1">
+                              {tourneyGame?.icon && <img src={tourneyGame.icon} alt="" className="w-3.5 h-3.5 object-contain" />}
+                              <span className="text-[9px] font-bold text-slate-400">{tourneyGame?.title[lang] || tourney.gameId}</span>
+                            </div>
+                            <span className="text-[11px] text-blue-500 font-bold font-mono tabular-nums">
+                              {(() => {
+                                const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
+                                const totalMins = Math.floor(diff / 60000);
+                                return `${Math.floor(totalMins / 60)}:${(totalMins % 60).toString().padStart(2, '0')}`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+               </section>
+             )}
+
              <h2 className="text-2xl font-black uppercase italic tracking-tight mb-2">{t.cityHunt}</h2>
              <Suspense fallback={null}><TreasureHuntMap venues={RESTAURANTS} pendingCheckIn={location.state?.pendingCheckIn} lang={lang} /></Suspense>
           </motion.div>
@@ -1268,7 +1414,7 @@ onClick={() => {
                   </div>
                   <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl">
                     <div className="text-lg font-black text-yellow-400 italic">
-                      {Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length}
+                      {(() => { try { return Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length; } catch { return 0; }})()}
                     </div>
                     <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none mt-1.5">{t.cityHunt}</div>
                   </div>
@@ -1285,7 +1431,7 @@ onClick={() => {
                   <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl flex items-center gap-3">
                     <Flame className={`w-6 h-6 ${streak > 0 ? 'text-orange-500' : 'text-slate-600'}`} />
                     <div>
-                      <div className="text-lg font-black text-orange-400 italic">{streak} {t.days}</div>
+                      <div className="text-lg font-black text-orange-400 italic">{streak} {streak === 1 ? t.day : t.days}</div>
                       <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none">{t.streak}</div>
                     </div>
                   </div>
@@ -1325,12 +1471,12 @@ onClick={() => {
                         const redeemed = p.redeemed;
                         const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
                         const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
-                        const prizeGame = gamesList.find(g => g.title[lang] === p.gameTitle);
+                        const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
                         return (
                           <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
                             <div>
                               <div className="text-sm font-black text-yellow-400">{p.rewardType}</div>
-                              <div className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} pts</div>
+                              <div className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} {p.score === 1 ? 'pt' : 'pts'}</div>
                               <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
                             </div>
                             <div className="text-right">
@@ -1340,7 +1486,7 @@ onClick={() => {
                               <div className={`text-[9px] font-black uppercase tracking-widest ${
                                 redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
                               }`}>
-                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : t.claimCode.replace('{code}', p.code || '')}
+                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : p.tournamentId ? t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`) : t.claimCode.replace('{code}', p.code || '')}
                               </div>
                             </div>
                           </div>
@@ -1448,7 +1594,7 @@ onClick={() => {
                         <p className="text-xs text-slate-400 leading-relaxed">{badgeLabel?.desc || ''}</p>
                         {unlocked ? (
                           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
-                            Awarded {Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000)} days ago
+                            {(() => { const d = Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000); return `Awarded ${d} ${d === 1 ? 'day' : 'days'} ago`; })()}
                           </p>
                         ) : (
                           <p className="text-[10px] text-slate-600 uppercase tracking-wider font-bold">Not yet unlocked</p>
@@ -1466,6 +1612,7 @@ onClick={() => {
                       { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },
                       { key: 'gameReminders', label: t.gameReminders, desc: t.gameRemindersDesc },
                       { key: 'venueSpecials', label: t.venueSpecials, desc: t.venueSpecialsDesc },
+                      { key: 'tournamentLaunches', label: t.tournamentLaunches, desc: t.tournamentLaunchesDesc },
                     ] as const).map(({ key, label, desc }) => {
                       const enabled = notificationPrefs[key];
                       return (
@@ -1573,6 +1720,43 @@ onClick={() => {
                           {(t as any).music[key] || key}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Language Settings */}
+                <div className="mt-8 text-left space-y-4">
+                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Language</h3>
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-xl">
+                    <div className="flex items-center justify-center gap-8">
+                      <button onClick={() => setLang('uk')} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                          lang === 'uk'
+                            ? 'bg-gradient-to-b from-blue-600/30 to-yellow-400/30 border-2 border-yellow-400 shadow-lg shadow-yellow-400/10 scale-110'
+                            : 'bg-slate-800/50 border-2 border-white/10 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                        }`}>
+                          🇺🇦
+                        </div>
+                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
+                          lang === 'uk' ? 'text-yellow-400' : 'text-slate-500'
+                        }`}>
+                          Українська
+                        </span>
+                      </button>
+                      <button onClick={() => setLang('en')} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                          lang === 'en'
+                            ? 'bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400 shadow-lg shadow-blue-500/10 scale-110'
+                            : 'bg-slate-800/50 border-2 border-white/10 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                        }`}>
+                          🇺🇸
+                        </div>
+                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
+                          lang === 'en' ? 'text-blue-400' : 'text-slate-500'
+                        }`}>
+                          English
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>

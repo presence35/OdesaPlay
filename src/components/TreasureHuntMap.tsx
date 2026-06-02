@@ -54,11 +54,6 @@ export default function TreasureHuntMap({ venues = [], demoMode = false, pending
         </div>
       )}
 
-      <div className="flex justify-between items-center text-xs text-slate-500 uppercase font-bold tracking-widest px-2 mb-4">
-        <span>{t.progress}: {completeList.length} / {RESTAURANTS.length}</span>
-        <span>{RESTAURANTS.length > 0 ? Math.round((completeList.length / RESTAURANTS.length) * 100) : 0}%</span>
-      </div>
-
       <div className="bg-black/30 rounded-2xl border border-white/5 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
           <h3 className="text-white font-bold text-sm uppercase tracking-wider">{t.restaurants}</h3>

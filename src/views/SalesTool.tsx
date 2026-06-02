@@ -276,7 +276,7 @@ export default function SalesTool({ lang }: { lang: Language }) {
                   tickFormatter={(v: string) => { const gn = GAME_NAMES[v]; return gn ? (lang === 'en' ? gn.en : gn.uk) : v; }} />
                 <Tooltip {...tooltipStyle} formatter={(value: number, _: string, props: any) => {
                   const gn = GAME_NAMES[props.payload.key];
-                  return [`${value} ${t.playsCount}`, gn ? (lang === 'en' ? gn.en : gn.uk) : props.payload.key];
+                  return [`${value} ${value === 1 ? t.playCount : t.playsCount}`, gn ? (lang === 'en' ? gn.en : gn.uk) : props.payload.key];
                 }} />
                 <Bar dataKey="plays" radius={[0, 8, 8, 0]} animationBegin={800} animationDuration={1000}>
                   {scaledGamesPlayed.map((_, idx) => <Cell key={idx} fill={['#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'][idx]} />)}
@@ -302,7 +302,7 @@ export default function SalesTool({ lang }: { lang: Language }) {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-bold text-white">{item.restaurant}</p>
-                  <p className="text-xs text-slate-400">{t.sentXGuests.replace('{n}', String(item.guests)).replace('{restaurant}', item.restaurant)}</p>
+                  <p className="text-xs text-slate-400">{(item.guests === 1 ? t.sentXGuest : t.sentXGuests).replace('{n}', String(item.guests)).replace('{restaurant}', item.restaurant)}</p>
                 </div>
                 <div className="text-2xl font-black text-cyan-400">{item.guests}</div>
               </motion.div>

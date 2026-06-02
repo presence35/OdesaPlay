@@ -398,7 +398,7 @@ export default function TriviaGame() {
                   {t.filterNote}
                 </p>
                 <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 14, color: "#c8a860", letterSpacing: 0.5 }}>
-                  ({t.questionsCount?.replace('{n}', filtered.length)})
+                  ({(filtered.length === 1 ? t.questionCount : t.questionsCount)?.replace('{n}', filtered.length)})
                 </p>
               </div>
 

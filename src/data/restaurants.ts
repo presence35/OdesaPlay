@@ -70,7 +70,7 @@ export function useActiveTournaments() {
           const now = Date.now();
           setTournaments(snapshot.docs
             .map(d => ({ id: d.id, ...d.data() } as VenueTournament))
-            .filter(t => !t.expiresAt || t.expiresAt.toMillis() > now)
+            .filter(t => !t.expiresAt || t.expiresAt.toMillis() + 300000 > now)
           );
           setLoading(false);
         },

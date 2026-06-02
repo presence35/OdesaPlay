@@ -93,6 +93,7 @@ export interface NotificationPreferences {
   droneAlerts: boolean;
   gameReminders: boolean;
   venueSpecials: boolean;
+  tournamentLaunches: boolean;
   fcmToken?: string;
   fcmTokenUpdatedAt?: number;
 }

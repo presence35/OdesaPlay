@@ -41,6 +41,8 @@ export default function App() {
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   const [lang, setLang] = useState<Lang>('uk');
+  const langRef = useRef<Lang>(lang);
+  langRef.current = lang;
   const t = TRANSLATIONS[lang];
   
   const resetGame = () => {
@@ -392,7 +394,12 @@ export default function App() {
             const dx = p.targetX - p.startX;
             const dy = p.targetY - p.startY;
             p.x = p.startX + dx * p.progress;
-            p.y = p.startY + dy * p.progress - Math.sin(p.progress * Math.PI) * 150; 
+            p.y = p.startY + dy * p.progress - Math.sin(p.progress * Math.PI) * 150;
+            if (handleProjectileHit(p, state)) {
+              projectilePoolRef.current!.release(p.container);
+              state.projectiles.splice(i, 1);
+              continue;
+            }
           } else {
             p.x = p.startX + (p.targetX - p.startX) * p.progress;
             p.y = p.startY + (p.targetY - p.startY) * p.progress;
@@ -424,6 +431,23 @@ export default function App() {
           }
           
           v.x += v.speed * v.direction * dt;
+
+          // Vehicle collision avoidance
+          if (v.status === 'normal') {
+            for (const other of state.vehicles) {
+              if (other === v || other.status !== 'normal' || other.lane !== v.lane || other.direction !== v.direction) continue;
+              const gap = v.direction === 1 ? other.x - v.x : v.x - other.x;
+              const safeGap = (v.width + other.width) / 2 + 20;
+              if (gap > 0 && gap < safeGap * 3) {
+                const t = Math.max(0, gap / (safeGap * 3));
+                v.speed = Math.max(v.speed - 300 * dt * (1 - t * 0.9), 15);
+              } else if (gap < 0 && -gap < safeGap * 3) {
+                const t = Math.max(0, -gap / (safeGap * 3));
+                v.speed = Math.min(v.speed + 200 * dt * (1 - t * 0.9), v.originalSpeed * 1.5);
+              }
+            }
+          }
+
           const isOnScreen = v.x > -v.width && v.x < w + v.width;
           
           if (v.isNoisy && v.status === 'normal' && isOnScreen) {
@@ -452,7 +476,8 @@ export default function App() {
         state.particles = state.particles.filter(p => p.life > 0);
 
         sounds.setScore(state.silenceLevel);
-        if (scoreRef.current) scoreRef.current.innerText = `${t.score}: ${Math.floor(state.score)}`;
+        const _t = TRANSLATIONS[langRef.current];
+        if (scoreRef.current) scoreRef.current.innerText = `${_t.score}: ${Math.floor(state.score)}`;
         if (noiseBarRef.current) noiseBarRef.current.style.width = `${Math.max(0, Math.min(100, 100 - state.silenceLevel))}%`;
         if (timeRef.current) timeRef.current.innerText = `${Math.ceil(state.timeLeft)}`;
       };
@@ -678,9 +703,8 @@ export default function App() {
   }, [pixiVersion]);
 
   const spawnVehicle = (state: GameState, w: number, h: number) => {
-    const isNoisy = Math.random() > 0.5;
+    const isNoisy = state.vehicles.length === 0 ? true : Math.random() > 0.5;
     const isSilent = !isNoisy && Math.random() > 0.5;
-    const direction = Math.random() > 0.5 ? 1 : -1;
     const isMotorcycle = Math.random() > 0.5;
     
     const skyHeight = h * 0.38;
@@ -693,26 +717,49 @@ export default function App() {
     ];
 
     const active = state.vehicles.filter(v => v.status === 'normal');
-    const carsInLane = [0, 1].map(i => active.filter(v => v.lane === i && v.type === 'car').length);
-    const bikesInLane = [0, 1].map(i => active.filter(v => v.lane === i && v.type === 'motorcycle').length);
+
+    // Helper function to check if a vehicle type is too close to spawn point in a lane
+    const isTooClose = (lane: number, type: 'car' | 'motorcycle', spawnX: number, threshold: number = 200): boolean => {
+        return active.some(v => 
+            v.lane === lane && 
+            v.type === type && 
+            Math.abs(v.x - spawnX) < threshold
+        );
+    };
 
     const firstLane = Math.random() > 0.5 ? 0 : 1;
     const lanes = [firstLane, firstLane === 0 ? 1 : 0];
 
     let lane = -1;
     for (const l of lanes) {
-      if (isMotorcycle) {
-        if (bikesInLane[l] < 2 && carsInLane[l] === 0) { lane = l; break; }
-      } else {
-        if (carsInLane[l] === 0 && bikesInLane[l] === 0) { lane = l; break; }
-      }
+        const dir = l === 0 ? 1 : -1;
+        const spawnX = dir === 1 ? -100 : w + 100;
+        if (isMotorcycle) {
+            // Check if lane is clear for motorcycle: no bikes too close, no cars too close (exclusivity)
+            if (!isTooClose(l, 'motorcycle', spawnX, 150) && !isTooClose(l, 'car', spawnX, 200)) {
+                lane = l; 
+                break; 
+            }
+        } else {
+            // Check if lane is clear for car: no cars too close, no bikes too close (exclusivity)
+            if (!isTooClose(l, 'car', spawnX, 150) && !isTooClose(l, 'motorcycle', spawnX, 200)) {
+                lane = l; 
+                break; 
+            }
+        }
     }
 
     if (lane === -1) return;
 
+    const direction = lane === 0 ? 1 : -1;
+
     let y = laneCenters[lane];
-    if (isMotorcycle && bikesInLane[lane] === 1) y += 12;
-    else if (isMotorcycle && bikesInLane[lane] === 0) y -= 12;
+    const bikesInThisLane = active.filter(v => v.lane === lane && v.type === 'motorcycle').length;
+    if (isMotorcycle) {
+      const side = bikesInThisLane % 2 === 0 ? -1 : 1;
+      const tier = Math.floor(bikesInThisLane / 2);
+      y += side * (12 + tier * 8);
+    }
 
     const speed = (isNoisy ? 150 : 80) + Math.random() * 50;
     state.vehicles.push({
@@ -795,10 +842,10 @@ export default function App() {
         hitSomething = true;
         if (v.isNoisy) {
           if (p.type === 'water') {
-            v.waterLevel += 25;
+            v.waterLevel += 20;
             if (v.waterLevel >= 100) {
               v.status = 'watered';
-              state.score += 3;
+              state.score += 1;
               createParticles(state, v.x, v.y, 'water');
             } else {
               createParticles(state, p.x, p.y, 'water');
@@ -807,7 +854,7 @@ export default function App() {
             v.bananaHits += 1;
             if (v.bananaHits >= 2) {
               v.status = 'banana-stopped';
-              state.score += 2;
+              state.score += 1;
               createParticles(state, hitX, hitY, 'banana');
               sounds.playBananaHit();
             } else {
@@ -821,10 +868,10 @@ export default function App() {
             sounds.playExplosion();
           }
         } else {
-          state.score = Math.max(0, state.score - 10);
+          state.score = Math.max(0, state.score - 2);
           sounds.playError();
           if (p.type === 'water') {
-            v.waterLevel += 25;
+            v.waterLevel += 20;
             if (v.waterLevel >= 100) v.status = 'watered';
             createParticles(state, p.x, p.y, 'water');
           } else if (p.type === 'banana') {
@@ -844,6 +891,7 @@ export default function App() {
     if (!hitSomething) {
       createParticles(state, p.x, p.y, p.type === 'water' ? 'water' : p.type === 'banana' ? 'banana' : 'explosion');
     }
+    return hitSomething;
   };
 
   const createParticles = (state: GameState, x: number, y: number, type: 'water' | 'explosion' | 'banana') => {

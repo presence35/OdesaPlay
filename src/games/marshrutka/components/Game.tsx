@@ -1151,7 +1151,7 @@ export default function Game() {
         const textWidth = ctx.measureText(p.text).width;
         const bubblePad = 16;
         const bubbleW = textWidth + bubblePad * 2;
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillStyle = '#000000';
         roundRect(ctx, -bubbleW / 2, py - 16, bubbleW, 32, 20);
         ctx.fill();
         ctx.strokeStyle = hex + '66';
@@ -1175,6 +1175,11 @@ export default function Game() {
     }
     if (lastTimeRef.current === 0) {
       lastTimeRef.current = time;
+      spawnTimers.current.pothole = time;
+      spawnTimers.current.babushka = time;
+      spawnTimers.current.bike = time;
+      spawnTimers.current.passenger = time;
+      spawnTimers.current.scenery = time;
     }
     const deltaTime = Math.min(time - lastTimeRef.current, 100);
     lastTimeRef.current = time;
@@ -1749,7 +1754,7 @@ export default function Game() {
               <h1 className="text-5xl sm:text-6xl md:text-7xl font-black mb-2 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#0057b7] to-[#ffd700] drop-shadow-lg">
                 {t.title2}
               </h1>
-              <p className="text-xs sm:text-sm whitespace-nowrap font-bold mb-4 drop-shadow-md uppercase tracking-wide text-white">
+              <p className="text-xs sm:text-sm font-bold mb-4 drop-shadow-md uppercase tracking-wide text-white">
                 {t.pickUpPassengers} • {t.avoidPotholes} • {t.collectFlowers}
               </p>
               <div

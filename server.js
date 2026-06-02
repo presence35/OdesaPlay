@@ -124,6 +124,54 @@ setTimeout(() => {
   idleCheckInterval = setInterval(sendIdleReminders, 259_200_000); // 72h
 }, 259_200_000); // 72h
 
+// ── Tournament launch notifier ───────────────────────────────────────────────
+const notifiedTournaments = new Set();
+
+async function sendTournamentLaunchPush(venueName, prize, gameId) {
+  if (!admin) return;
+  try {
+    const profilesSnap = await adminDb.collectionGroup('profiles').get();
+    const tokens = [];
+    profilesSnap.forEach(doc => {
+      const n = doc.data().notifications;
+      if (n?.tournamentLaunches && n?.fcmToken) tokens.push(n.fcmToken);
+    });
+    if (tokens.length === 0) return;
+    const message = {
+      notification: {
+        title: `🏆 New Tournament at ${venueName}!`,
+        body: `Prize: ${prize} — Play now!`
+      },
+      data: { url: `/?game=${gameId || 'drones'}` },
+      tokens,
+    };
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(`[FCM] Tournament launch sent to ${response.successCount} devices`);
+  } catch (e) {
+    console.error('[FCM] Tournament launch error:', e.message);
+  }
+}
+
+async function checkNewTournaments() {
+  if (!admin) return;
+  try {
+    const snap = await adminDb.collectionGroup('venueTournaments')
+      .where('status', '==', 'active')
+      .get();
+    snap.forEach(doc => {
+      const id = doc.id;
+      if (notifiedTournaments.has(id)) return;
+      notifiedTournaments.add(id);
+      const data = doc.data();
+      sendTournamentLaunchPush(data.venueName, data.prize, data.gameId);
+    });
+  } catch (e) {
+    console.error('[TOURNAMENT] Poll error:', e.message);
+  }
+}
+
+setInterval(checkNewTournaments, 30_000); // 30s
+
 // ── Express server ──────────────────────────────────────────────────────────
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));

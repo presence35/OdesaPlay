@@ -15,9 +15,9 @@ import { showToast } from '../components/Toast';
 import { VenueTournament } from './gamehub/types';
 import {
   ShieldCheck, BarChart2, Zap, Gamepad2, Clock, Ticket,
-  Calendar, X, Trophy, Medal, Users
+  Calendar, X, Trophy, Medal, Users, Mail
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+
 
 const APP_ID = 'odesa-gra-prod';
 
@@ -32,6 +32,7 @@ interface Claim {
   timestamp: any;
   expiresAt: number;
   uid: string;
+  nickname?: string;
   redeemed?: boolean;
   redeemedAt?: any;
 }
@@ -44,9 +45,7 @@ export default function ManagerHub() {
   const [authReady, setAuthReady] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [resolved, setResolved] = useState<boolean | null>(null);
-  const [lang, setLang] = useState<Language>(() => (localStorage.getItem('odesa_lang') as Language) || 'uk');
-  const [adminTab, setAdminTab] = useState<'live' | 'settings' | 'tournament'>('live');
-
+  const [lang] = useState<Language>(() => (localStorage.getItem('odesa_lang') as Language) || 'uk');
   const [venueConfig, setVenueConfig] = useState<any>({
     tier1: { prize: 'Free Tea', threshold: 100, mode: 'score' },
     tier2: { prize: 'Free Fries', threshold: 125, mode: 'score' },
@@ -62,6 +61,7 @@ export default function ManagerHub() {
   const activeTournament = allTournaments.find(t => t.venueId === restaurantId) || null;
   const [lastTournamentId, setLastTournamentId] = useState<string | null>(null);
   const { tournament: endedTournament } = useTournament(lastTournamentId);
+  const [previousEndedTournament, setPreviousEndedTournament] = useState<VenueTournament | null>(null);
   const [tournamentGame, setTournamentGame] = useState('shooter');
   const [tournamentPrize, setTournamentPrize] = useState('');
   const [tournamentTopWinners, setTournamentTopWinners] = useState(1);
@@ -73,6 +73,13 @@ export default function ManagerHub() {
       setLastTournamentId(activeTournament.id);
     }
   }, [activeTournament?.id]);
+  useEffect(() => {
+    if (endedTournament?.resolved) {
+      setPreviousEndedTournament(endedTournament);
+    } else if (activeTournament?.status === 'active') {
+      setPreviousEndedTournament(null);
+    }
+  }, [endedTournament?.resolved, activeTournament?.id]);
   const notifiedManagerRef = useRef<Set<string>>(new Set());
 
   const GAME_OPTIONS = [
@@ -99,7 +106,7 @@ export default function ManagerHub() {
     if (!activeTournament || !activeTournament.resolved) return;
     if (notifiedManagerRef.current.has(activeTournament.id)) return;
     notifiedManagerRef.current.add(activeTournament.id);
-    showToast(`🏁 Tournament ended! ${activeTournament.prize} winners ready to claim.`);
+    showToast(`🏁 Tournament ended! ${activeTournament.prize} ${activeTournament.topWinners === 1 ? 'winner' : 'winners'} ready to claim.`);
   }, [activeTournament]);
 
   // Auth - sign in anonymously
@@ -237,7 +244,6 @@ export default function ManagerHub() {
         venueConfig,
         { merge: true }
       );
-      setAdminTab('live');
     } catch (e) {
       console.error(e);
     }
@@ -254,7 +260,7 @@ export default function ManagerHub() {
         prize: tournamentPrize.trim(),
         topWinners: tournamentTopWinners,
         startedAt: Timestamp.fromMillis(now),
-        expiresAt: Timestamp.fromMillis(now + 3600000),
+        expiresAt: Timestamp.fromMillis(now + 10800000),
         status: 'active',
         resolved: false,
       });
@@ -298,6 +304,7 @@ export default function ManagerHub() {
           timestamp: serverTimestamp(),
           expiresAt: w.claimExpiresAt,
           uid: w.uid,
+          nickname: w.nickname,
           tournamentId: activeTournament.id,
         });
       }
@@ -318,9 +325,9 @@ export default function ManagerHub() {
     const mins = Math.floor(diff / 60000);
     const hours = Math.floor(mins / 60);
     const days = Math.floor(hours / 24);
-    if (days > 0) return t.timeAgoDays.replace('{n}', days.toString());
-    if (hours > 0) return t.timeAgoHours.replace('{n}', hours.toString());
-    if (mins > 0) return t.timeAgoMins.replace('{n}', mins.toString());
+    if (days > 0) return (days === 1 ? t.timeAgoDay : t.timeAgoDays).replace('{n}', days.toString());
+    if (hours > 0) return (hours === 1 ? t.timeAgoHour : t.timeAgoHours).replace('{n}', hours.toString());
+    if (mins > 0) return (mins === 1 ? t.timeAgoMin : t.timeAgoMins).replace('{n}', mins.toString());
     return t.timeAgoJustNow;
   };
 
@@ -339,7 +346,7 @@ export default function ManagerHub() {
   // Not activated
   if (!resolved || !restaurant) {
     return (
-      <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center font-sans p-6">
+      <div className="min-h-screen bg-[#0a0a0c] text-white font-sans p-6 flex flex-col items-center justify-center">
         <div className="max-w-sm text-center space-y-6">
           <div className="w-20 h-20 bg-slate-800 rounded-full mx-auto flex items-center justify-center">
             <ShieldCheck className="w-10 h-10 text-slate-500" />
@@ -348,6 +355,16 @@ export default function ManagerHub() {
           <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">
             This manager card has not been linked to a restaurant yet. Contact OdesaPlay support.
           </p>
+          <div className="flex gap-3 justify-center">
+            <a href="mailto:contact@odesaplay.com.ua" className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:scale-105 transition-transform shadow-lg">
+              <Mail className="w-5 h-5" />
+            </a>
+            <a href="https://t.me/odesaplay_bot" target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center text-[#24A1DE] bg-white rounded-full hover:scale-105 transition-transform drop-shadow-lg">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.233-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -361,65 +378,53 @@ export default function ManagerHub() {
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans">
       {/* Header */}
-      <header className="px-4 py-3 flex justify-between items-center fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
-        <div>
-          <h1 className="text-xl font-black italic uppercase text-yellow-400">
-            {restaurant.name[lang] || restaurant.name['uk'] || restaurant.name['en']}
-          </h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-            {t.managerHub} • {new Date().toLocaleDateString()}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLang(lang === 'uk' ? 'en' : 'uk')}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-xl bg-slate-800 hover:bg-slate-700 transition-colors"
-          >
-            {lang === 'uk' ? '🇺🇦' : '🇬🇧'}
-          </button>
-        </div>
+      <header className="px-4 py-3 flex items-center justify-center fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
+        <h1 className="text-xl font-black italic uppercase text-yellow-400 text-center">
+          {restaurant.name[lang] || restaurant.name['uk'] || restaurant.name['en']}
+        </h1>
       </header>
 
-      <main className="px-5 py-5 pt-24 max-w-lg mx-auto pb-8">
-        {/* Tab Switcher */}
-        <div className="flex gap-1 bg-slate-900 p-1 rounded-xl mb-6">
-          <button
-            onClick={() => setAdminTab('live')}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${adminTab === 'live' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-          >
-            {t.live}
-          </button>
-          <button
-            onClick={() => setAdminTab('tournament')}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${adminTab === 'tournament' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-          >
-            <Trophy className="w-3 h-3 inline-block -mt-0.5 mr-1" />{t.tournament}
-          </button>
-          <button
-            onClick={() => setAdminTab('settings')}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${adminTab === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-          >
-            {t.prizes}
-          </button>
-        </div>
-
-        <AnimatePresence mode="wait">
-          {adminTab === 'live' ? (
-            <motion.div
-              key="live"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
+      <main className="px-5 py-5 max-w-lg mx-auto pb-8 space-y-12">
+        <div className="space-y-6">
               {/* Today's Hunt QR */}
               <section className="bg-black/50 p-8 rounded-[32px] border border-white/10 text-center flex flex-col items-center">
-                <h2 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-6">Today's Hunt QR</h2>
-                <div className="bg-white p-4 rounded-2xl w-fit">
+                <h2 className="text-xs font-black uppercase text-slate-500 tracking-widest mb-3">
+                  {t.todayHunt} <span className="text-[9px] align-bottom text-slate-500">({todayToken})</span>
+                </h2>
+                <div className="bg-white p-3 rounded-2xl w-fit">
                   <QRCodeSVG value={customerQrUrl} size={200} />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">Token: {todayToken}</p>
               </section>
+
+              {/* Active Wins */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
+                  <Zap className="w-4 h-4 text-yellow-400" fill="currentColor" /> {t.activeWins}
+                </h3>
+                {venueClaims.filter(w => !w.redeemed).map(w => (
+                  <div key={w.id} className="bg-slate-900/50 p-5 rounded-[24px] border border-white/5 flex justify-between items-center shadow-xl">
+                    <div className="min-w-0 mr-3">
+                      <div className="text-lg font-black text-yellow-400 leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
+                      <div className="text-sm text-white/80 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold uppercase tracking-tighter leading-none mb-1">
+                        <span className="truncate">{w.gameTitle}</span>
+                        <span>·</span>
+                        <span className="shrink-0">{w.tier === 0 ? <Trophy className="w-4 h-4 text-yellow-400" /> : `${t.level} ${w.tier}`}</span>
+                      </div>
+                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{getTimeAgo(w.timestamp)}</div>
+                    </div>
+                    <button
+                      onClick={() => verifyClaim(w)}
+                      className="shrink-0 bg-white text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-gray-100 hover:shadow-2xl active:shadow-md transition-all shadow-xl"
+                    >
+                      {w.code}
+                    </button>
+                  </div>
+                ))}
+                {venueClaims.filter(w => !w.redeemed).length === 0 && (
+                  <div className="py-12 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">{t.noWinners}</div>
+                )}
+              </div>
 
               {/* Redemption Stats */}
               <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
@@ -478,43 +483,13 @@ export default function ManagerHub() {
                 )}
               </div>
 
-              {/* Active Wins */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
-                  <Zap className="w-4 h-4 text-yellow-400" fill="currentColor" /> {t.activeWins}
-                </h3>
-                {venueClaims.filter(w => !w.redeemed).map(w => (
-                  <div key={w.id} className="bg-slate-900/50 p-5 rounded-[24px] border border-white/5 flex justify-between items-center shadow-xl">
-                    <div className="min-w-0 mr-3">
-                      <div className="text-lg font-black text-yellow-400 leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
-                      <div className="text-sm text-white/80 font-bold leading-none mb-1">{'Player'}</div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold uppercase tracking-tighter leading-none mb-1">
-                        <span className="truncate">{w.gameTitle}</span>
-                        <span>·</span>
-                        <span className="shrink-0">{t.level} {w.tier}</span>
-                      </div>
-                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{getTimeAgo(w.timestamp)}</div>
-                    </div>
-                    <button
-                      onClick={() => verifyClaim(w)}
-                      className="shrink-0 bg-white text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-gray-100 hover:shadow-2xl active:shadow-md transition-all shadow-xl"
-                    >
-                      {w.code}
-                    </button>
-                  </div>
-                ))}
-                {venueClaims.filter(w => !w.redeemed).length === 0 && (
-                  <div className="py-12 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">{t.noWinners}</div>
-                )}
-              </div>
-
               {/* Redeemed History */}
               <div className="space-y-3 mt-6">
                 <h3 className="text-xs font-black uppercase text-slate-600 flex items-center gap-2 tracking-widest italic">
                   <Ticket className="w-4 h-4" /> {t.claimedPrize}
                 </h3>
                 {venueClaims.filter(w => w.redeemed).length === 0 ? (
-                  <div className="py-8 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">No redeemed prizes yet</div>
+                  <div className="py-8 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">{t.noRedeemedPrizes}</div>
                 ) : (
                   venueClaims.filter(w => w.redeemed).sort((a: any, b: any) => {
                     const ta = a.redeemedAt?.toMillis ? a.redeemedAt.toMillis() : 0;
@@ -524,10 +499,13 @@ export default function ManagerHub() {
                     <div key={w.id} className="bg-slate-900/30 p-4 rounded-[20px] border border-white/5 flex justify-between items-center opacity-60">
                       <div className="min-w-0 mr-3">
                         <div className="text-base font-black text-slate-400 leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
-                        <div className="text-sm text-slate-500 font-bold leading-none mb-1">{'Player'}</div>
+                        <div className="text-sm text-slate-500 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
                         <div className="text-[9px] text-slate-600 uppercase font-black tracking-widest mt-1">{getTimeAgo(w.redeemedAt)}</div>
                       </div>
-                      <div className="text-[10px] text-green-600 font-black uppercase tracking-widest shrink-0">{t.claimRedeemed}</div>
+                      <div className="text-right">
+                        <div className="text-sm font-black text-slate-500 font-mono tracking-widest">{w.code}</div>
+                        <div className="text-[10px] text-green-600 font-black uppercase tracking-widest">{t.claimRedeemed}</div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -567,16 +545,12 @@ export default function ManagerHub() {
                   </div>
                 );
               })()}
-            </motion.div>
-          ) : adminTab === 'tournament' ? (
-            <motion.div
-              key="tournament"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              {/* Create new tournament form */}
+        </div>
+
+        <div className="h-px bg-gradient-to-r from-blue-500 via-yellow-400 to-transparent" />
+
+        <div className="space-y-6">
+          {/* Create new tournament form */}
               {(!activeTournament || activeTournament.status === 'ended') && (
                 <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
                   <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
@@ -646,26 +620,49 @@ export default function ManagerHub() {
               )}
 
               {/* Ended tournament winners */}
-              {endedTournament?.winners && endedTournament.winners.length > 0 && (
+              {(() => {
+                const displayEndedTournament = previousEndedTournament ?? endedTournament;
+                if (!displayEndedTournament?.winners || displayEndedTournament.winners.length === 0) return null;
+                return (
                 <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
                   <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
                     <Ticket className="w-4 h-4 text-green-400" /> Winners
                   </h3>
+                  <div className="bg-gradient-to-r from-yellow-400/10 to-orange-400/5 p-4 rounded-2xl border border-yellow-400/20 mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const g = GAME_OPTIONS.find(g => g.id === displayEndedTournament.gameId);
+                        return g?.icon ? <img src={g.icon} alt="" className="w-6 h-6 object-contain" /> : null;
+                      })()}
+                      <div>
+                        <div className="text-lg font-black text-yellow-400">{displayEndedTournament.prize}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                          {(() => {
+                            const g = GAME_OPTIONS.find(g => g.id === displayEndedTournament.gameId);
+                            return g?.title[lang] || displayEndedTournament.gameId;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      Top {displayEndedTournament.topWinners}
+                    </div>
+                  </div>
                   <div className="space-y-3">
-                    {endedTournament.winners.map(w => (
+                    {displayEndedTournament.winners.map(w => (
                       <div key={w.uid} className="bg-black/40 p-4 rounded-2xl border border-white/5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-xl">{w.avatar || '👤'}</span>
                             <div>
                               <div className="text-sm font-bold text-white">{w.nickname}</div>
-                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">#{w.rank} · {w.score} pts</div>
+                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">#{w.rank} · {w.score} {w.score === 1 ? 'pt' : 'pts'}</div>
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-black text-green-400 font-mono tracking-widest">{w.claimCode}</div>
                             <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                              {w.claimed ? 'Redeemed ✓' : 'Pending'}
+                              {w.claimed ? t.claimRedeemed : t.claimPending}
                             </div>
                           </div>
                         </div>
@@ -673,7 +670,8 @@ export default function ManagerHub() {
                     ))}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Active tournament view */}
               {activeTournament && activeTournament.status === 'active' && (
@@ -714,14 +712,14 @@ export default function ManagerHub() {
                   <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
                     <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
                       <Medal className="w-4 h-4" /> {t.tournamentLeaderboard}
-                      <span className="text-[9px] text-slate-600 ml-auto">{tournamentEntries.length} players</span>
                     </h3>
                     <div className="space-y-2">
-                      {tournamentEntries.map((e, i) => {
-                        const isWinning = i < activeTournament.topWinners;
+                      {Array.from({ length: Math.max(activeTournament.topWinners, tournamentEntries.length) }, (_, i) => {
+                        const e = tournamentEntries[i] || null;
+                        const isWinning = e && i < activeTournament.topWinners;
                         return (
                           <div
-                            key={e.id}
+                            key={e?.id || `empty-${i}`}
                             className={`flex items-center justify-between p-3 rounded-xl ${
                               isWinning ? 'bg-yellow-400/10 border border-yellow-400/20' : 'bg-black/40'
                             }`}
@@ -735,34 +733,23 @@ export default function ManagerHub() {
                               ) : (
                                 <span className="text-sm w-[28px] text-center font-black text-slate-600">#{i + 1}</span>
                               )}
-                              <span className="text-lg">{e.avatar || '👤'}</span>
                               <div>
-                                <div className="text-sm font-bold text-white">{e.nickname}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                                  {isWinning ? '🏆' : ''}
-                                </div>
+                                <div className="text-sm font-bold text-white">{e ? e.nickname : '—'}</div>
                               </div>
                             </div>
-                            <span className="font-black text-yellow-400 font-mono">{e.score}</span>
+                            <span className="font-black text-yellow-400 font-mono">{e ? ((e.tournamentScore ?? e.score) || 0) : '—'}</span>
                           </div>
                         );
                       })}
-                      {tournamentEntries.length === 0 && (
-                        <div className="text-center py-12 text-slate-600 text-xs font-bold uppercase tracking-widest">{t.noEntries}</div>
-                      )}
                     </div>
                   </div>
                 </>
               )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-            >
+        </div>
+
+        <div className="h-px bg-gradient-to-r from-blue-500 via-yellow-400 to-transparent" />
+
+        <div className="space-y-4">
               {(() => {
                 const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
                 const weekScores = leaderboards.filter(l => {
@@ -797,7 +784,10 @@ export default function ManagerHub() {
                 );
               })()}
 
-              <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-4 shadow-inner">
+              <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
+                  <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
+                    <Medal className="w-4 h-4 text-yellow-400" /> {t.standardPrizes}
+                  </h3>
                 {([1, 2, 3] as const).map(tierNum => {
                   const key = `tier${tierNum}`;
                   const cfg = venueConfig[key] || { prize: '', threshold: 100, mode: 'score' };
@@ -847,9 +837,7 @@ export default function ManagerHub() {
                   {t.saveConfig}
                 </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </main>
     </div>
   );
