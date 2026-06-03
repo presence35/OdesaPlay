@@ -1832,6 +1832,7 @@ export default function Game() {
                   </div>
                 </div>
               </div>
+              <p className="text-sm font-bold mb-2 uppercase tracking-wider text-white/70">{t.pickRoute}</p>
               <div className="grid grid-cols-3 gap-3 w-full">
                 {ROUTES.map(r => (
                   <button

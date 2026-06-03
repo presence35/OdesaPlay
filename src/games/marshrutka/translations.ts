@@ -24,7 +24,8 @@ export const TRANSLATIONS = {
     deliveryHitPizza: 'RIP DINNER 😢',
     deliveryHitShawarma: 'RIP SHAWARMA 😢',
     swipe: 'SWIPE',
-    quit: 'QUIT'
+    quit: 'QUIT',
+    pickRoute: 'PICK A ROUTE'
   },
   uk: {
     title2: 'МАРШРУТКА',
@@ -51,6 +52,7 @@ export const TRANSLATIONS = {
     deliveryHitPizza: 'ВЕЧЕРІ НЕ БУДЕ 😢',
     deliveryHitShawarma: 'ШАУРМИ НЕ БУДЕ 😢',
     swipe: 'СВАЙП',
-    quit: 'ВИЙТИ'
+    quit: 'ВИЙТИ',
+    pickRoute: 'ОБЕРИ МАРШРУТ'
   }
 };

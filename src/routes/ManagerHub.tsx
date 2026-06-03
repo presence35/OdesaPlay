@@ -334,10 +334,10 @@ export default function ManagerHub() {
   // Loading
   if (resolved === null) {
     return (
-      <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex items-center justify-center font-sans">
         <div className="animate-pulse flex flex-col items-center">
-          <ShieldCheck className="w-12 h-12 text-yellow-400 mb-4 animate-spin" />
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Loading...</p>
+          <ShieldCheck className="w-12 h-12 text-[var(--text-accent)] mb-4 animate-spin" />
+          <p className="text-[var(--text-subtle)] font-bold uppercase tracking-widest text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -346,17 +346,17 @@ export default function ManagerHub() {
   // Not activated
   if (!resolved || !restaurant) {
     return (
-      <div className="min-h-screen bg-[#0a0a0c] text-white font-sans p-6 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans p-6 flex flex-col items-center justify-center">
         <div className="max-w-sm text-center space-y-6">
-          <div className="w-20 h-20 bg-slate-800 rounded-full mx-auto flex items-center justify-center">
-            <ShieldCheck className="w-10 h-10 text-slate-500" />
+          <div className="w-20 h-20 bg-[var(--bg-elevated)] rounded-full mx-auto flex items-center justify-center">
+            <ShieldCheck className="w-10 h-10 text-[var(--text-muted)]" />
           </div>
           <h1 className="text-2xl font-black italic uppercase text-slate-300">Not Activated</h1>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">
+          <p className="text-[var(--text-muted)] text-sm font-bold uppercase tracking-wider">
             This manager card has not been linked to a restaurant yet. Contact OdesaPlay support.
           </p>
           <div className="flex gap-3 justify-center">
-            <a href="mailto:contact@odesaplay.com.ua" className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:scale-105 transition-transform shadow-lg">
+            <a href="mailto:contact@odesaplay.com.ua" className="w-12 h-12 bg-[var(--btn-primary-bg)] rounded-full flex items-center justify-center text-[var(--text-primary)] hover:scale-105 transition-transform shadow-lg">
               <Mail className="w-5 h-5" />
             </a>
             <a href="https://t.me/odesaplay_bot" target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center text-[#24A1DE] bg-white rounded-full hover:scale-105 transition-transform drop-shadow-lg">
@@ -376,10 +376,10 @@ export default function ManagerHub() {
   const venueClaims = allClaims.filter(c => c.venueId === restaurantId);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white font-sans">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans">
       {/* Header */}
-      <header className="px-4 py-3 flex items-center justify-center fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
-        <h1 className="text-xl font-black italic uppercase text-yellow-400 text-center">
+      <header className="px-4 py-3 flex items-center justify-center fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
+        <h1 className="text-xl font-black italic uppercase text-[var(--text-accent)] text-center">
           {restaurant.name[lang] || restaurant.name['uk'] || restaurant.name['en']}
         </h1>
       </header>
@@ -387,9 +387,9 @@ export default function ManagerHub() {
       <main className="px-5 py-5 max-w-lg mx-auto pb-8 space-y-12">
         <div className="space-y-6">
               {/* Today's Hunt QR */}
-              <section className="bg-black/50 p-8 rounded-[32px] border border-white/10 text-center flex flex-col items-center">
-                <h2 className="text-xs font-black uppercase text-slate-500 tracking-widest mb-3">
-                  {t.todayHunt} <span className="text-[9px] align-bottom text-slate-500">({todayToken})</span>
+              <section className="bg-black/50 p-8 rounded-[32px] border border-[var(--border-strong)] text-center flex flex-col items-center">
+                <h2 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-widest mb-3">
+                  {t.todayHunt} <span className="text-[9px] align-bottom text-[var(--text-muted)]">({todayToken})</span>
                 </h2>
                 <div className="bg-white p-3 rounded-2xl w-fit">
                   <QRCodeSVG value={customerQrUrl} size={200} />
@@ -398,20 +398,20 @@ export default function ManagerHub() {
 
               {/* Active Wins */}
               <div className="space-y-3">
-                <h3 className="text-xs font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
-                  <Zap className="w-4 h-4 text-yellow-400" fill="currentColor" /> {t.activeWins}
+                <h3 className="text-xs font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
+                  <Zap className="w-4 h-4 text-[var(--text-accent)]" fill="currentColor" /> {t.activeWins}
                 </h3>
                 {venueClaims.filter(w => !w.redeemed).map(w => (
-                  <div key={w.id} className="bg-slate-900/50 p-5 rounded-[24px] border border-white/5 flex justify-between items-center shadow-xl">
+                  <div key={w.id} className="bg-[var(--bg-secondary)]/50 p-5 rounded-[24px] border border-[var(--border-default)] flex justify-between items-center shadow-xl">
                     <div className="min-w-0 mr-3">
-                      <div className="text-lg font-black text-yellow-400 leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
-                      <div className="text-sm text-white/80 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold uppercase tracking-tighter leading-none mb-1">
+                      <div className="text-lg font-black text-[var(--text-accent)] leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
+                      <div className="text-sm text-[var(--text-primary)]/80 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--text-subtle)] font-bold uppercase tracking-tighter leading-none mb-1">
                         <span className="truncate">{w.gameTitle}</span>
                         <span>·</span>
-                        <span className="shrink-0">{w.tier === 0 ? <Trophy className="w-4 h-4 text-yellow-400" /> : `${t.level} ${w.tier}`}</span>
+                        <span className="shrink-0">{w.tier === 0 ? <Trophy className="w-4 h-4 text-[var(--text-accent)]" /> : `${t.level} ${w.tier}`}</span>
                       </div>
-                      <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">{getTimeAgo(w.timestamp)}</div>
+                      <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mt-1">{getTimeAgo(w.timestamp)}</div>
                     </div>
                     <button
                       onClick={() => verifyClaim(w)}
@@ -422,32 +422,32 @@ export default function ManagerHub() {
                   </div>
                 ))}
                 {venueClaims.filter(w => !w.redeemed).length === 0 && (
-                  <div className="py-12 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">{t.noWinners}</div>
+                  <div className="py-12 text-center text-[var(--text-subtle)] italic border-2 border-dashed border-[var(--border-default)] rounded-[32px]">{t.noWinners}</div>
                 )}
               </div>
 
               {/* Redemption Stats */}
-              <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+              <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
+                <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                   <BarChart2 className="w-4 h-4" /> {t.redemptionStats}
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   {Object.entries(venueStats).map(([p, c]) => (
-                    <div key={p} className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                      <div className="text-3xl font-black text-yellow-400 font-mono">{c}</div>
-                      <div className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">{p}</div>
+                    <div key={p} className="bg-black/40 p-4 rounded-2xl border border-[var(--border-default)]">
+                      <div className="text-3xl font-black text-[var(--text-accent)] font-mono">{c}</div>
+                      <div className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{p}</div>
                     </div>
                   ))}
                   {Object.keys(venueStats).length === 0 && (
-                    <div className="col-span-2 text-center text-slate-600 text-xs py-4 font-bold tracking-widest uppercase">{t.noRedemptions}</div>
+                    <div className="col-span-2 text-center text-[var(--text-subtle)] text-xs py-4 font-bold tracking-widest uppercase">{t.noRedemptions}</div>
                   )}
                 </div>
               </div>
 
               {/* Live Players */}
-              <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
+              <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
+                  <h3 className="text-xs font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
                     <Gamepad2 className="w-4 h-4 text-red-400" /> {t.livePlayers}
                   </h3>
                   {venueSessions.length > 0 && (
@@ -458,7 +458,7 @@ export default function ManagerHub() {
                   )}
                 </div>
                 {venueSessions.length === 0 ? (
-                  <p className="text-slate-600 text-xs font-bold uppercase tracking-widest text-center py-4">{t.noEntries}</p>
+                  <p className="text-[var(--text-subtle)] text-xs font-bold uppercase tracking-widest text-center py-4">{t.noEntries}</p>
                 ) : (
                   <div className="space-y-2">
                     {venueSessions.map(s => (
@@ -466,11 +466,11 @@ export default function ManagerHub() {
                         <div className="flex items-center gap-3">
                           <span className="text-xl">{s.avatar || '👤'}</span>
                           <div>
-                            <div className="text-sm font-bold text-white">{s.nickname}</div>
-                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{s.gameTitle || s.gameId}</div>
+                            <div className="text-sm font-bold text-[var(--text-primary)]">{s.nickname}</div>
+                            <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">{s.gameTitle || s.gameId}</div>
                           </div>
                         </div>
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                        <span className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">
                           {s.startedAt ? (() => {
                             const diff = Date.now() - ((s.startedAt as any)?.toMillis?.() || (s.startedAt as any)?.seconds * 1000 || Date.now());
                             const m = Math.floor(diff / 60000);
@@ -485,25 +485,25 @@ export default function ManagerHub() {
 
               {/* Redeemed History */}
               <div className="space-y-3 mt-6">
-                <h3 className="text-xs font-black uppercase text-slate-600 flex items-center gap-2 tracking-widest italic">
+                <h3 className="text-xs font-black uppercase text-[var(--text-subtle)] flex items-center gap-2 tracking-widest italic">
                   <Ticket className="w-4 h-4" /> {t.claimedPrize}
                 </h3>
                 {venueClaims.filter(w => w.redeemed).length === 0 ? (
-                  <div className="py-8 text-center text-slate-700 italic border-2 border-dashed border-white/5 rounded-[32px]">{t.noRedeemedPrizes}</div>
+                  <div className="py-8 text-center text-[var(--text-subtle)] italic border-2 border-dashed border-[var(--border-default)] rounded-[32px]">{t.noRedeemedPrizes}</div>
                 ) : (
                   venueClaims.filter(w => w.redeemed).sort((a: any, b: any) => {
                     const ta = a.redeemedAt?.toMillis ? a.redeemedAt.toMillis() : 0;
                     const tb = b.redeemedAt?.toMillis ? b.redeemedAt.toMillis() : 0;
                     return tb - ta;
                   }).map(w => (
-                    <div key={w.id} className="bg-slate-900/30 p-4 rounded-[20px] border border-white/5 flex justify-between items-center opacity-60">
+                    <div key={w.id} className="bg-[var(--bg-secondary)]/30 p-4 rounded-[20px] border border-[var(--border-default)] flex justify-between items-center opacity-60">
                       <div className="min-w-0 mr-3">
-                        <div className="text-base font-black text-slate-400 leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
-                        <div className="text-sm text-slate-500 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
-                        <div className="text-[9px] text-slate-600 uppercase font-black tracking-widest mt-1">{getTimeAgo(w.redeemedAt)}</div>
+                        <div className="text-base font-black text-[var(--text-subtle)] leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
+                        <div className="text-sm text-[var(--text-muted)] font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
+                        <div className="text-[9px] text-[var(--text-subtle)] uppercase font-black tracking-widest mt-1">{getTimeAgo(w.redeemedAt)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-black text-slate-500 font-mono tracking-widest">{w.code}</div>
+                        <div className="text-sm font-black text-[var(--text-muted)] font-mono tracking-widest">{w.code}</div>
                         <div className="text-[10px] text-green-600 font-black uppercase tracking-widest">{t.claimRedeemed}</div>
                       </div>
                     </div>
@@ -524,22 +524,22 @@ export default function ManagerHub() {
                 const highScore = Math.max(...weekScores.map(l => l.score || 0));
                 const avgScore = Math.round(weekScores.reduce((sum, l) => sum + (l.score || 0), 0) / weekScores.length);
                 return (
-                  <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                    <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+                  <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
+                    <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                       <Calendar className="w-4 h-4" /> {t.weekStats}
                     </h3>
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
                         <div className="text-2xl font-black text-blue-400 font-mono">{uniquePlayers}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekPlayers}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekPlayers}</div>
                       </div>
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
-                        <div className="text-2xl font-black text-yellow-400 font-mono">{highScore}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekHighScore}</div>
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
+                        <div className="text-2xl font-black text-[var(--text-accent)] font-mono">{highScore}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekHighScore}</div>
                       </div>
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
                         <div className="text-2xl font-black text-emerald-400 font-mono">{avgScore}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
                       </div>
                     </div>
                   </div>
@@ -552,22 +552,22 @@ export default function ManagerHub() {
         <div className="space-y-6">
           {/* Create new tournament form */}
               {(!activeTournament || activeTournament.status === 'ended') && (
-                <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
-                  <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
-                    <Trophy className="w-4 h-4 text-yellow-400" /> {t.launchTournament}
+                <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] space-y-5 shadow-inner">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
+                    <Trophy className="w-4 h-4 text-[var(--text-accent)]" /> {t.launchTournament}
                   </h3>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.prizeLabel}</label>
+                    <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-2 block tracking-widest">{t.prizeLabel}</label>
                     <input
                       type="text"
                       value={tournamentPrize}
                       onChange={e => setTournamentPrize(e.target.value)}
                       placeholder={lang === 'uk' ? 'Напр. Безкоштовна кава' : 'E.g. Free coffee'}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 shadow-inner text-sm"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] shadow-inner text-sm"
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.games}</label>
+                    <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-2 block tracking-widest">{t.games}</label>
                     <div className="flex gap-2 flex-wrap">
                       {GAME_OPTIONS.map(g => (
                         <button
@@ -575,8 +575,8 @@ export default function ManagerHub() {
                           onClick={() => setTournamentGame(g.id)}
                           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
                             tournamentGame === g.id
-                              ? 'bg-yellow-400 text-black'
-                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                              ? 'bg-[var(--accent-bg)] text-[var(--text-on-accent)]'
+                              : 'bg-[var(--bg-elevated)] text-[var(--text-subtle)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           {g.icon && <img src={g.icon} alt="" className="w-4 h-4 object-contain" />}
@@ -586,7 +586,7 @@ export default function ManagerHub() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-600 uppercase mb-2 block tracking-widest">{t.topWinners}</label>
+                    <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-2 block tracking-widest">{t.topWinners}</label>
                     <div className="flex gap-2 justify-center">
                       {[1,2,3,4,5].map(i => {
                         const selected = i <= tournamentTopWinners;
@@ -596,13 +596,13 @@ export default function ManagerHub() {
                             onClick={() => setTournamentTopWinners(i)}
                             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                               selected
-                                ? 'bg-yellow-400/15 border-2 border-yellow-400'
-                                : 'bg-slate-800/50 border-2 border-transparent hover:bg-slate-700/50'
+                                ? 'bg-[var(--accent-bg)]/15 border-2 border-[var(--accent-bg)]'
+                                : 'bg-[var(--bg-elevated)]/50 border-2 border-transparent hover:bg-[var(--bg-elevated)]'
                             }`}
                           >
                             <span className="relative w-[28px] h-[28px] shrink-0" style={{ filter: selected ? 'none' : 'grayscale(1) opacity(0.4)' }}>
                               <img src="/images/trophy-badge.png" alt="" className="w-full h-full object-contain" />
-                              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-white translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i}</span>
+                              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-[var(--text-primary)] translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i}</span>
                             </span>
                           </button>
                         );
@@ -612,7 +612,7 @@ export default function ManagerHub() {
                   <button
                     onClick={launchTournament}
                     disabled={!tournamentPrize.trim()}
-                    className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-2 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full bg-[var(--accent-bg)] text-[var(--text-on-accent)] py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-2 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {t.launch1hButton}
                   </button>
@@ -624,19 +624,19 @@ export default function ManagerHub() {
                 const displayEndedTournament = previousEndedTournament ?? endedTournament;
                 if (!displayEndedTournament?.winners || displayEndedTournament.winners.length === 0) return null;
                 return (
-                <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                  <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+                <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
+                  <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                     <Ticket className="w-4 h-4 text-green-400" /> Winners
                   </h3>
-                  <div className="bg-gradient-to-r from-yellow-400/10 to-orange-400/5 p-4 rounded-2xl border border-yellow-400/20 mb-4 flex items-center justify-between">
+                  <div className="bg-gradient-to-r from-yellow-400/10 to-orange-400/5 p-4 rounded-2xl border border-[var(--border-accent)] mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {(() => {
                         const g = GAME_OPTIONS.find(g => g.id === displayEndedTournament.gameId);
                         return g?.icon ? <img src={g.icon} alt="" className="w-6 h-6 object-contain" /> : null;
                       })()}
                       <div>
-                        <div className="text-lg font-black text-yellow-400">{displayEndedTournament.prize}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                        <div className="text-lg font-black text-[var(--text-accent)]">{displayEndedTournament.prize}</div>
+                        <div className="text-[9px] text-[var(--text-subtle)] font-bold uppercase tracking-wider">
                           {(() => {
                             const g = GAME_OPTIONS.find(g => g.id === displayEndedTournament.gameId);
                             return g?.title[lang] || displayEndedTournament.gameId;
@@ -644,24 +644,24 @@ export default function ManagerHub() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">
                       Top {displayEndedTournament.topWinners}
                     </div>
                   </div>
                   <div className="space-y-3">
                     {displayEndedTournament.winners.map(w => (
-                      <div key={w.uid} className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                      <div key={w.uid} className="bg-black/40 p-4 rounded-2xl border border-[var(--border-default)]">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-xl">{w.avatar || '👤'}</span>
                             <div>
-                              <div className="text-sm font-bold text-white">{w.nickname}</div>
-                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">#{w.rank} · {w.score} {w.score === 1 ? 'pt' : 'pts'}</div>
+                              <div className="text-sm font-bold text-[var(--text-primary)]">{w.nickname}</div>
+                              <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">#{w.rank} · {w.score} {w.score === 1 ? 'pt' : 'pts'}</div>
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-black text-green-400 font-mono tracking-widest">{w.claimCode}</div>
-                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                            <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">
                               {w.claimed ? t.claimRedeemed : t.claimPending}
                             </div>
                           </div>
@@ -676,19 +676,19 @@ export default function ManagerHub() {
               {/* Active tournament view */}
               {activeTournament && activeTournament.status === 'active' && (
                 <>
-                  <div className="bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-6 rounded-[32px] border border-yellow-400/20 space-y-4">
+                  <div className="bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-6 rounded-[32px] border border-[var(--border-accent)] space-y-4">
                     {(() => {
                       const g = GAME_OPTIONS.find(g => g.id === activeTournament.gameId);
                       return (
-                        <h3 className="flex items-center gap-1.5 text-sm font-black uppercase text-yellow-400 tracking-widest italic">
+                        <h3 className="flex items-center gap-1.5 text-sm font-black uppercase text-[var(--text-accent)] tracking-widest italic">
                           {g?.icon && <img src={g.icon} alt="" className="w-5 h-5 object-contain" />}
                           {g?.title[lang] || activeTournament.gameId}
                         </h3>
                       );
                     })()}
-                    <div className="text-2xl font-black text-white text-center">{activeTournament.prize}</div>
+                    <div className="text-2xl font-black text-[var(--text-primary)] text-center">{activeTournament.prize}</div>
                     <div className="flex justify-between items-center">
-                      <div className="text-4xl font-black text-yellow-400 font-mono tabular-nums">
+                      <div className="text-4xl font-black text-[var(--text-accent)] font-mono tabular-nums">
                         {(() => {
                           const diff = Math.max(0, activeTournament.expiresAt?.toMillis() - Date.now());
                           const m = Math.floor(diff / 60000);
@@ -709,8 +709,8 @@ export default function ManagerHub() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                    <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+                  <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
+                    <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                       <Medal className="w-4 h-4" /> {t.tournamentLeaderboard}
                     </h3>
                     <div className="space-y-2">
@@ -721,23 +721,23 @@ export default function ManagerHub() {
                           <div
                             key={e?.id || `empty-${i}`}
                             className={`flex items-center justify-between p-3 rounded-xl ${
-                              isWinning ? 'bg-yellow-400/10 border border-yellow-400/20' : 'bg-black/40'
+                              isWinning ? 'bg-[var(--accent-bg)]/10 border border-[var(--border-accent)]' : 'bg-black/40'
                             }`}
                           >
                             <div className="flex items-center gap-3">
                               {i < 3 ? (
                                 <span className="relative w-[28px] h-[28px] shrink-0" style={{ filter: i === 0 ? 'none' : i === 1 ? 'grayscale(0.4) brightness(1.1)' : 'grayscale(0.6) brightness(0.9)' }}>
                                   <img src="/images/trophy-badge.png" alt="" className="w-full h-full object-contain" />
-                                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-white translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i + 1}</span>
+                                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-[var(--text-primary)] translate-y-[-7px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{i + 1}</span>
                                 </span>
                               ) : (
-                                <span className="text-sm w-[28px] text-center font-black text-slate-600">#{i + 1}</span>
+                                <span className="text-sm w-[28px] text-center font-black text-[var(--text-subtle)]">#{i + 1}</span>
                               )}
                               <div>
-                                <div className="text-sm font-bold text-white">{e ? e.nickname : '—'}</div>
+                                <div className="text-sm font-bold text-[var(--text-primary)]">{e ? e.nickname : '—'}</div>
                               </div>
                             </div>
-                            <span className="font-black text-yellow-400 font-mono">{e ? ((e.tournamentScore ?? e.score) || 0) : '—'}</span>
+                            <span className="font-black text-[var(--text-accent)] font-mono">{e ? ((e.tournamentScore ?? e.score) || 0) : '—'}</span>
                           </div>
                         );
                       })}
@@ -762,67 +762,67 @@ export default function ManagerHub() {
                 const highScore = Math.max(...weekScores.map(l => l.score || 0));
                 const avgScore = Math.round(weekScores.reduce((sum, l) => sum + (l.score || 0), 0) / weekScores.length);
                 return (
-                  <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 shadow-inner">
-                    <h3 className="text-xs font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-widest italic">
+                  <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
+                    <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                       <Calendar className="w-4 h-4" /> {t.weekStats}
                     </h3>
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
                         <div className="text-2xl font-black text-blue-400 font-mono">{uniquePlayers}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekPlayers}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekPlayers}</div>
                       </div>
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
-                        <div className="text-2xl font-black text-yellow-400 font-mono">{highScore}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekHighScore}</div>
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
+                        <div className="text-2xl font-black text-[var(--text-accent)] font-mono">{highScore}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekHighScore}</div>
                       </div>
-                      <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                      <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
                         <div className="text-2xl font-black text-emerald-400 font-mono">{avgScore}</div>
-                        <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
                       </div>
                     </div>
                   </div>
                 );
               })()}
 
-              <div className="bg-slate-900/50 p-6 rounded-[32px] border border-white/5 space-y-5 shadow-inner">
-                  <h3 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2 tracking-widest italic">
-                    <Medal className="w-4 h-4 text-yellow-400" /> {t.standardPrizes}
+              <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] space-y-5 shadow-inner">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
+                    <Medal className="w-4 h-4 text-[var(--text-accent)]" /> {t.standardPrizes}
                   </h3>
                 {([1, 2, 3] as const).map(tierNum => {
                   const key = `tier${tierNum}`;
                   const cfg = venueConfig[key] || { prize: '', threshold: 100, mode: 'score' };
                   return (
-                    <div key={tierNum} className="bg-black/30 p-4 rounded-2xl border border-white/5 space-y-3">
-                      <div className="text-xs font-black text-slate-500 uppercase tracking-widest italic">{t.level} {tierNum}</div>
+                    <div key={tierNum} className="bg-black/30 p-4 rounded-2xl border border-[var(--border-default)] space-y-3">
+                      <div className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest italic">{t.level} {tierNum}</div>
                       <div className="flex gap-3 items-end">
                         <div className="flex-[3]">
-                          <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block tracking-widest">{t.prize}</label>
+                          <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-1 block tracking-widest">{t.prize}</label>
                           <input
                             type="text"
                             value={cfg.prize}
                             onChange={(e) => setVenueConfig({ ...venueConfig, [key]: { ...cfg, prize: e.target.value } })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 shadow-inner text-sm"
+                            className="w-full bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] shadow-inner text-sm"
                           />
                         </div>
                         <div className="w-[60px]">
-                          <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block tracking-widest">{cfg.mode === 'percentile' ? t.percentileBased : t.points}</label>
+                          <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-1 block tracking-widest">{cfg.mode === 'percentile' ? t.percentileBased : t.points}</label>
                           <input
                             type="number"
                             value={cfg.threshold}
                             onChange={(e) => setVenueConfig({ ...venueConfig, [key]: { ...cfg, threshold: Number(e.target.value) } })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 shadow-inner text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] shadow-inner text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div className="w-[52px]">
-                          <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block tracking-widest">{t.mode}</label>
-                          <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                          <label className="text-[9px] font-bold text-[var(--text-subtle)] uppercase mb-1 block tracking-widest">{t.mode}</label>
+                          <div className="flex rounded-lg overflow-hidden border border-[var(--border-strong)]">
                             <button
                               onClick={() => setVenueConfig({ ...venueConfig, [key]: { ...cfg, mode: 'score' } })}
-                              className={`flex-1 py-3 text-sm font-black transition-colors ${cfg.mode === 'score' ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-slate-500'}`}
+                              className={`flex-1 py-3 text-sm font-black transition-colors ${cfg.mode === 'score' ? 'bg-[var(--accent-bg)] text-[var(--text-on-accent)]' : 'bg-[var(--bg-secondary)] text-[var(--text-muted)]'}`}
                             >#</button>
                             <button
                               onClick={() => setVenueConfig({ ...venueConfig, [key]: { ...cfg, mode: 'percentile' } })}
-                              className={`flex-1 py-3 text-sm font-black transition-colors ${cfg.mode === 'percentile' ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-slate-500'}`}
+                              className={`flex-1 py-3 text-sm font-black transition-colors ${cfg.mode === 'percentile' ? 'bg-[var(--accent-bg)] text-[var(--text-on-accent)]' : 'bg-[var(--bg-secondary)] text-[var(--text-muted)]'}`}
                             >%</button>
                           </div>
                         </div>
@@ -832,7 +832,7 @@ export default function ManagerHub() {
                 })}
                 <button
                   onClick={saveVenueConfig}
-                  className="w-full bg-yellow-400 text-black py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-4 shadow-xl"
+                  className="w-full bg-[var(--accent-bg)] text-[var(--text-on-accent)] py-4 rounded-xl font-black active:scale-95 transition-transform uppercase tracking-widest mt-4 shadow-xl"
                 >
                   {t.saveConfig}
                 </button>

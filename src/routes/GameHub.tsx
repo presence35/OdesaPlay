@@ -6,9 +6,10 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
-  Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
+  Zap, X, Lock, Gamepad2, Globe, Map as MapIcon, User, Pencil,
   Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
-   Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users
+   Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users,
+  Sun, Moon, Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -29,10 +30,12 @@ import { showToast } from '../components/Toast';
 const TreasureHuntMap = lazy(() => import('../components/TreasureHuntMap'));
 const AdminPanel = lazy(() => import('../views/AdminPanel'));
 const SalesTool = lazy(() => import('../views/SalesTool'));
+import LoadingSpinner from '../components/LoadingSpinner';
 import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
 import { handleFirestoreError, transliterate, shareScore, getTier, triggerHaptic, calculatePlayerStats, getLevel, getXpForCurrentLevel, getXpForNextLevel, getXpProgress, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
+import { useTheme } from '../contexts/ThemeContext';
 
 const AVATARS = ["⚓", "🛸", "⚔️", "🥟", "🥨", "🐈", "🍉", "🎖️"];
 
@@ -56,11 +59,13 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [lang, setLang] = useState<Language>(() => {
     return (localStorage.getItem('odesa_lang') as Language) || 'uk';
   });
-  const [showLangPicker, setShowLangPicker] = useState(() => !localStorage.getItem('odesa_lang'));
-  const pickLang = (l: Language) => { setLang(l); setShowLangPicker(false); };
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
+  const { family, mode, setFamily, toggleMode } = useTheme();
+  const showSetup = true;
+  const pickLang = (l: Language) => { setLang(l); };
+  const pickTheme = (f: 'odesa' | 'ukraine') => { setFamily(f); };
 
   const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || /^bodi\d+$/i.test(profile.nickname ?? '');
   
@@ -899,7 +904,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             exit={{ opacity: 0, y: 10 }}
             className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6"
           >
-            <div className="w-full max-w-sm bg-gradient-to-b from-yellow-400 to-yellow-600 text-black rounded-[40px] p-8 text-center shadow-2xl relative overflow-hidden">
+            <div className="w-full max-w-sm bg-gradient-to-b from-[var(--accent-bg)] to-[var(--accent-bg)]/80 text-[var(--text-on-accent)] rounded-[40px] p-8 text-center shadow-2xl relative overflow-hidden">
               <Ticket className="w-16 h-16 mx-auto mb-4" fill="currentColor" />
               <h2 className="text-3xl font-black italic mb-4 uppercase leading-none">{t.notice}</h2>
               <div className="border-y-2 border-black/20 py-6 mb-6">
@@ -910,7 +915,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               <p className="text-xs font-bold mb-8 italic flex items-center justify-center gap-2">
                 <Clock className="w-4 h-4" /> {t.expires}: {Math.floor(timeLeft/60)}:{(timeLeft%60).toString().padStart(2,'0')}
               </p>
-              <button onClick={() => setActiveReward(null)} className="w-full py-4 bg-black text-yellow-400 rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest">{t.close}</button>
+              <button onClick={() => setActiveReward(null)} className="w-full py-4 bg-black text-[var(--text-accent)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest">{t.close}</button>
             </div>
           </motion.div>
         )}
@@ -924,9 +929,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             exit={{ opacity: 0, y: 10 }}
             className="fixed inset-0 z-[60] bg-black flex flex-col overflow-hidden overscroll-none"
           >
-            <header className="px-3 py-1.5 flex justify-between items-center border-b border-white/10 bg-[#0a0a0c]">
+            <header className="px-3 py-1.5 flex justify-between items-center border-b border-[var(--border-strong)] bg-[var(--bg-primary)]">
               <div className="flex items-center gap-4">
-                <button onClick={() => gamePlaying ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
+                <button onClick={() => gameActive ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
                   <span className="text-sm">🏠</span> {t.quit}
                 </button>
                 {gameActive && isAdmin && (
@@ -936,7 +941,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                         (window as any).Odesa._triggerStop();
                       }
                     }} 
-                    className="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors"
+                    className="flex items-center gap-1.5 text-[var(--text-subtle)] hover:text-[var(--text-primary)] text-xs font-bold uppercase tracking-widest transition-colors"
                   >
                     <span className="text-sm">🏁</span> End
                   </button>
@@ -961,15 +966,15 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               </div>
 
             </header>
-            <div className="flex-1 relative">
+            <div className="flex-1 relative flex flex-col">
               {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying)}
               {isWrongOrientation && (
                 <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-8 text-center">
                   <div className="text-6xl mb-6">🔄</div>
-                  <h2 className="text-2xl font-bold text-white mb-2">
+                  <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
                     {activeGame?.orientation === 'landscape' ? t.rotateLandscape : t.rotatePortrait}
                   </h2>
-                  <p className="text-lg text-white/70 max-w-xs">
+                  <p className="text-lg text-[var(--text-primary)]/70 max-w-xs">
                     {activeGame?.orientation === 'landscape' ? t.rotateLandscapeDesc : t.rotatePortraitDesc}
                   </p>
                 </div>
@@ -994,20 +999,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-[#0a0a0c] border border-white/10 rounded-3xl p-8 text-center shadow-2xl"
+              className="w-full max-w-sm bg-[var(--bg-primary)] border border-[var(--border-strong)] rounded-3xl p-8 text-center shadow-2xl"
             >
-              <h3 className="text-xl font-black italic uppercase text-white mb-2">{t.quitConfirm}</h3>
-              <p className="text-sm text-slate-400 mb-8">{t.quitConfirmMsg}</p>
+              <h3 className="text-xl font-black italic uppercase text-[var(--text-primary)] mb-2">{t.quitConfirm}</h3>
+              <p className="text-sm text-[var(--text-subtle)] mb-8">{t.quitConfirmMsg}</p>
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowQuitConfirm(false)} 
-                  className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
+                  className="flex-1 py-4 bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
                 >
                   {t.cancel}
                 </button>
                   <button 
                     onClick={() => { setShowQuitConfirm(false); setActiveGame(null); setTournamentPlayId(null); }} 
-                    className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
+                    className="flex-1 py-4 bg-red-600 text-[var(--text-primary)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
                   >
                     {t.yesQuit}
                   </button>
@@ -1020,12 +1025,12 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       {!activeGame && isMobileDevice && isLandscapeMode && (
         <div className="fixed inset-0 z-[55] bg-black/90 flex flex-col items-center justify-center p-8 text-center">
           <div className="text-6xl mb-6">🔄</div>
-          <h2 className="text-2xl font-bold text-white mb-2">{t.rotatePortrait}</h2>
-          <p className="text-lg text-white/70 max-w-xs">{t.rotatePortraitDesc}</p>
+          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{t.rotatePortrait}</h2>
+          <p className="text-lg text-[var(--text-primary)]/70 max-w-xs">{t.rotatePortraitDesc}</p>
         </div>
       )}
 
-      <header className="px-3 py-1.5 flex flex-wrap justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[#0a0a0c]/95 backdrop-blur-md z-50 border-b border-white/10 shadow-2xl">
+      <header className="px-3 py-1.5 flex flex-wrap justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
           <img src="/images/logo_full.png" alt="OdesaPlay" className="h-8 w-auto" />
         </div>
@@ -1033,7 +1038,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           <div className="flex items-center gap-1.5 shrink-0">
             <button
             onClick={toggleMusic}
-            className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-slate-500 hover:text-white bg-slate-900'}`}
+            className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)]'}`}
             title="Toggle Music"
           >
             <Music className="w-5 h-5" />
@@ -1050,31 +1055,88 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       <main className={`px-5 py-5 pt-14 sm:pt-14 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-            {showLangPicker && (
-              <div className="flex items-center justify-center gap-8 pt-2">
-                <button onClick={() => pickLang('uk')} className="flex flex-col items-center gap-2 group">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-b from-blue-600/20 to-yellow-400/20 border-2 border-yellow-400/40 flex items-center justify-center text-4xl shadow-lg group-hover:border-yellow-400 transition-colors">
-                    🇺🇦
+            {showSetup && (
+              <div className="w-full bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-strong)] shadow-xl space-y-5">
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{t.themeLanguage}</h4>
+                  <div className="flex items-center justify-center gap-6">
+                    <button onClick={() => pickLang('uk')} className="flex flex-col items-center gap-1.5 group">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-[var(--btn-primary-bg)]/20 to-[var(--accent-bg)]/20 border-2 border-[var(--accent-bg)]/40 flex items-center justify-center text-3xl shadow-lg group-hover:border-[var(--accent-bg)] transition-colors">
+                        🇺🇦
+                      </div>
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{t.themeUkr}</span>
+                    </button>
+                    <button onClick={() => pickLang('en')} className="flex flex-col items-center gap-1.5 group">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400/40 flex items-center justify-center text-3xl shadow-lg group-hover:border-blue-400 transition-colors">
+                        🇺🇸
+                      </div>
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{t.themeEng}</span>
+                    </button>
                   </div>
-                  <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
-                    Українська
-                  </span>
-                </button>
-                <button onClick={() => pickLang('en')} className="flex flex-col items-center gap-2 group">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400/40 flex items-center justify-center text-4xl shadow-lg group-hover:border-blue-400 transition-colors">
-                    🇺🇸
+                </div>
+                <div className="h-px bg-[var(--border-default)]" />
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{t.themeTheme}</h4>
+                  <div className="flex items-center justify-center gap-6">
+                    <button onClick={() => pickTheme('odesa')} className="flex flex-col items-center gap-1.5 group">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                        family === 'odesa'
+                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                      }`}>
+                        ⚓
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        family === 'odesa' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
+                      }`}>{t.themeOdesa}</span>
+                    </button>
+                    <button onClick={() => pickTheme('ukraine')} className="flex flex-col items-center gap-1.5 group">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                        family === 'ukraine'
+                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                      }`}>
+                        🇺🇦
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        family === 'ukraine' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
+                      }`}>{t.themeUkraine}</span>
+                    </button>
                   </div>
-                  <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
-                    English
-                  </span>
-                </button>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <button
+                      onClick={() => { if (mode !== 'dark') toggleMode(); pickTheme(family); }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                        mode === 'dark'
+                          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
+                          : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      <Moon className="w-3.5 h-3.5" /> {t.themeDark}
+                    </button>
+                    <span className="text-[var(--text-subtle)] text-[10px] font-bold">/</span>
+                    <button
+                      onClick={() => { if (mode !== 'light') toggleMode(); pickTheme(family); }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                        mode === 'light'
+                          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
+                          : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      <Sun className="w-3.5 h-3.5" /> {t.themeLight}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[9px] text-[var(--text-subtle)] text-center font-bold tracking-wide">
+                  {t.themeProfileNote}
+                </p>
               </div>
             )}
             {/* Active Tournaments — one-liner linking to venues tab */}
             {activeTournaments.length > 0 && (
-              <button onClick={() => setView('venues')} className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600/20 to-yellow-400/20 p-4 rounded-[24px] border border-yellow-400/30 cursor-pointer active:scale-[0.97] transition-transform shadow-lg shadow-blue-600/10">
-                <Trophy className="w-6 h-6 text-yellow-400 shrink-0" />
-                <span className="font-black text-yellow-400">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}...</span>
+              <button onClick={() => setView('venues')} className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-[var(--btn-primary-bg)]/20 to-[var(--accent-bg)]/20 p-4 rounded-[24px] border border-[var(--accent-border)] cursor-pointer active:scale-[0.97] transition-transform shadow-lg shadow-[var(--accent-bg)]/20">
+                <Trophy className="w-6 h-6 text-[var(--text-accent)] shrink-0" />
+                <span className="font-black text-[var(--text-accent)]">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}...</span>
               </button>
             )}
 
@@ -1082,7 +1144,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             {tournamentWins.length > 0 && (
               <section>
                 <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-400" />
+                  <Trophy className="w-5 h-5 text-[var(--text-accent)]" />
                   {t.notice}
                 </h2>
                 <div className="space-y-3">
@@ -1094,14 +1156,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                       <div
                         key={p.id}
                         onClick={() => setActiveReward(p)}
-                        className="bg-gradient-to-br from-blue-600/20 to-blue-400/10 p-5 rounded-[24px] border border-blue-500/40 cursor-pointer active:scale-95 transition-transform shadow-lg shadow-blue-600/10"
+                        className="bg-gradient-to-br from-[var(--btn-primary-bg)]/20 to-[var(--accent-bg)]/10 p-5 rounded-[24px] border border-[var(--accent-border)] cursor-pointer active:scale-95 transition-transform shadow-lg shadow-[var(--accent-bg)]/20"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">🏆</span>
                             <div>
                               <div className="text-[10px] font-black text-green-400 uppercase tracking-widest">{t.tournament}</div>
-                              <div className="text-lg font-black text-white leading-tight">{p.rewardType}</div>
+                              <div className="text-lg font-black text-[var(--text-primary)] leading-tight">{p.rewardType}</div>
                             </div>
                           </div>
                           <div className="text-right">
@@ -1109,14 +1171,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                             <div className="text-[8px] text-green-500/70 font-black uppercase tracking-wider">{t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`)}</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                        <div className="flex items-center justify-between pt-2 border-t border-[var(--border-default)]">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-subtle)]">
                             {prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}
                             {prizeGame?.title[lang] || p.gameTitle}
-                            <span className="text-slate-600">·</span>
+                            <span className="text-[var(--text-subtle)]">·</span>
                             {venueName}
                           </div>
-                          <div className="text-[9px] text-yellow-400 font-black uppercase tracking-wider">
+                          <div className="text-[9px] text-[var(--text-accent)] font-black uppercase tracking-wider">
                             {p.score} {p.score === 1 ? 'pt' : 'pts'}
                           </div>
                         </div>
@@ -1144,14 +1206,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                       />
                       {(game as any).isRoute && (
                         <div className="text-center p-4 space-y-3">
-                          <MapIcon className="w-10 h-10 text-yellow-400 mx-auto" />
-                          <h2 className="text-xl font-black italic uppercase text-white leading-tight">{game.title[lang]}</h2>
+                          <MapIcon className="w-10 h-10 text-[var(--text-accent)] mx-auto" />
+                          <h2 className="text-xl font-black italic uppercase text-[var(--text-primary)] leading-tight">{game.title[lang]}</h2>
                         </div>
                       )}
                       {game.comingSoon && (
                         <>
                           <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[2px]"></div>
-                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-black px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-black rounded-xl w-3/5 text-center truncate">
+                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-black rounded-xl w-3/5 text-center truncate">
                             {(t as any).comingSoonBanner}
                           </div>
                         </>
@@ -1163,18 +1225,18 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             ))}
 
             {/* Gradient hint for scroll */}
-            <div className="h-24 -mt-8 bg-gradient-to-t from-[#0a0a0c] to-transparent relative z-10" />
+            <div className="h-24 -mt-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent relative z-10" />
             
             <div className="flex flex-col gap-4 pt-4 pb-8 -mt-16 relative z-20">
-              <div className="bg-[#0a0a0c]/50 p-6 rounded-[32px] border border-white/5 flex flex-col items-center justify-center gap-5 text-center shadow-lg relative overflow-hidden">
+              <div className="bg-[var(--bg-primary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] flex flex-col items-center justify-center gap-5 text-center shadow-lg relative overflow-hidden">
                  <div className="p-3 bg-white rounded-3xl drop-shadow-xl inline-block w-fit">
                    <QRCodeSVG value={`http://odesaplay.com.ua?r=${profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}`} size={140} level="M" />
                  </div>
                  
-                 <span className="text-[10px] text-slate-500 select-all font-mono opacity-80 truncate max-w-full">http://odesaplay.com.ua?r={profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}</span>
+                 <span className="text-[10px] text-[var(--text-muted)] select-all font-mono opacity-80 truncate max-w-full">http://odesaplay.com.ua?r={profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}</span>
                  
                  <div 
-                    className="flex flex-row items-center justify-between px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full cursor-pointer transition-all active:scale-95 group"
+                    className="flex flex-row items-center justify-between px-4 py-2 bg-white/5 hover:bg-white/10 border border-[var(--border-strong)] rounded-full cursor-pointer transition-all active:scale-95 group"
 onClick={() => {
                          const refCode = profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`;
                          const url = `http://odesaplay.com.ua?r=${refCode}`;
@@ -1188,16 +1250,16 @@ onClick={() => {
                         }
                     }}
                  >
-                   <p className="text-xs uppercase font-bold tracking-widest text-slate-200">{t.scanToPlay}</p>
-                   <div className="p-2 bg-yellow-400 text-black rounded-full ml-4 drop-shadow-md group-hover:scale-105 transition-transform">
+                   <p className="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">{t.scanToPlay}</p>
+                   <div className="p-2 bg-[var(--accent-bg)] text-[var(--text-on-accent)] rounded-full ml-4 drop-shadow-md group-hover:scale-105 transition-transform">
                      <Share2 className="w-4 h-4" />
                    </div>
                  </div>
               </div>
-              <div className="bg-[#0a0a0c]/50 p-6 rounded-[32px] border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-lg">
-                <p className="text-xs font-bold leading-normal tracking-tight text-slate-400 flex-1">{t.contactText}</p>
+              <div className="bg-[var(--bg-primary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-lg">
+                <p className="text-xs font-bold leading-normal tracking-tight text-[var(--text-subtle)] flex-1">{t.contactText}</p>
                 <div className="flex gap-3 shrink-0">
-                  <a href="mailto:contact@odesaplay.com.ua" className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:scale-105 transition-transform shadow-lg">
+                  <a href="mailto:contact@odesaplay.com.ua" className="w-12 h-12 bg-[var(--btn-primary-bg)] rounded-full flex items-center justify-center text-[var(--text-primary)] hover:scale-105 transition-transform shadow-lg">
                     <Mail className="w-5 h-5" />
                   </a>
                   <a href="https://t.me/odesaplay_bot" target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center text-[#24A1DE] bg-white rounded-full hover:scale-105 transition-transform drop-shadow-lg">
@@ -1215,18 +1277,18 @@ onClick={() => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black uppercase italic tracking-tight">{t.leaderboard}</h2>
-              <div className="flex gap-1 bg-slate-900 p-1 rounded-xl">
+              <div className="flex gap-1 bg-[var(--bg-secondary)] p-1 rounded-xl">
                 <button 
                   onClick={() => setLeaderboardFilter('week')} 
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${leaderboardFilter === 'week' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${leaderboardFilter === 'week' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
                 >{t.lastWeek}</button>
                 <button 
                   onClick={() => setLeaderboardFilter('all')} 
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${leaderboardFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${leaderboardFilter === 'all' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
                 >{t.allTime}</button>
                 <button 
                   onClick={() => setLeaderboardFilter('alert')} 
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${leaderboardFilter === 'alert' ? 'bg-red-600 text-white' : 'text-slate-500'}`}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${leaderboardFilter === 'alert' ? 'bg-red-600 text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
                 ><AlertTriangle className="w-3 h-3" /> ALERT</button>
               </div>
             </div>
@@ -1238,49 +1300,49 @@ onClick={() => {
               const userRank = userRecord ? records.findIndex(r => r.uid === getUserId()) + 1 : null;
               const medals = ['🥇', '🥈', '🥉'];
               return (
-                <div key={game.id} className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 space-y-4 shadow-xl">
-                  <h3 className="text-sm font-black text-slate-500 uppercase italic tracking-widest flex items-center gap-2">{game.icon && <img src={game.icon} alt="" className="w-5 h-5 object-contain" />}{game.title[lang]}</h3>
+                <div key={game.id} className="bg-[var(--bg-secondary)]/50 p-5 rounded-3xl border border-[var(--border-default)] space-y-4 shadow-xl">
+                  <h3 className="text-sm font-black text-[var(--text-muted)] uppercase italic tracking-widest flex items-center gap-2">{game.icon && <img src={game.icon} alt="" className="w-5 h-5 object-contain" />}{game.title[lang]}</h3>
                   <div className="space-y-3">
                     {records.map((r, i) => {
                       const isUser = r.uid === getUserId();
                       return (
                         <div 
                           key={r.id} 
-                          className={`flex items-center justify-between ${isUser ? 'bg-yellow-400/10 -mx-2 px-2 py-1 rounded-xl border border-yellow-400/20' : ''}`}
+                          className={`flex items-center justify-between ${isUser ? 'bg-[var(--accent-bg)]/10 -mx-2 px-2 py-1 rounded-xl border border-[var(--border-accent)]' : ''}`}
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-lg w-6 text-center">
-                              {i < 3 ? medals[i] : <span className="text-xs font-black text-slate-600">{i + 1}</span>}
+                              {i < 3 ? medals[i] : <span className="text-xs font-black text-[var(--text-subtle)]">{i + 1}</span>}
                             </span>
                             <Media src={r.avatar || '⚓'} imgClass="w-5 h-5" textClass="text-lg" />
                             <div className="flex flex-col">
                               <span className="font-bold uppercase text-sm tracking-widest leading-none">{r.nickname}</span>
-                              <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-none mt-1">{getTimeAgo(r.timestamp, lang)}</span>
+                              <span className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest leading-none mt-1">{getTimeAgo(r.timestamp, lang)}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="font-black text-yellow-400 italic font-mono">{r.score}</span>
+                            <span className="font-black text-[var(--text-accent)] italic font-mono">{r.score}</span>
                           </div>
                         </div>
                       );
                     })}
                     {userRank && userRank > 21 && (
-                      <div className="border-t border-white/10 pt-3 mt-3">
+                      <div className="border-t border-[var(--border-strong)] pt-3 mt-3">
                         {(() => {
                           const allGameRecords = filteredLb.filter(l => l.gameId === game.id).sort((a, b) => b.score - a.score);
                           const actualRank = allGameRecords.findIndex(r => r.uid === getUserId()) + 1;
                           const record = allGameRecords.find(r => r.uid === getUserId());
                           if (!record) return null;
                           return (
-                            <div className="flex items-center justify-between bg-yellow-400/10 px-3 py-2 rounded-xl border border-yellow-400/20">
+                            <div className="flex items-center justify-between bg-[var(--accent-bg)]/10 px-3 py-2 rounded-xl border border-[var(--border-accent)]">
                               <div className="flex items-center gap-3">
-                                <span className="text-xs font-black text-slate-500 w-6 text-center">#{actualRank}</span>
+                                <span className="text-xs font-black text-[var(--text-muted)] w-6 text-center">#{actualRank}</span>
                                 <Media src={record.avatar || '⚓'} imgClass="w-5 h-5" textClass="text-lg" />
                                 <div className="flex flex-col">
-                                  <span className="font-bold uppercase text-sm tracking-widest leading-none text-yellow-400">{t.you}</span>
+                                  <span className="font-bold uppercase text-sm tracking-widest leading-none text-[var(--text-accent)]">{t.you}</span>
                                 </div>
                               </div>
-                              <span className="font-black text-yellow-400 italic font-mono">{record.score}</span>
+                              <span className="font-black text-[var(--text-accent)] italic font-mono">{record.score}</span>
                             </div>
                           );
                         })()}
@@ -1291,7 +1353,7 @@ onClick={() => {
               );
             })}
 
-            {leaderboards.length === 0 && <div className="text-center py-20 text-slate-500 italic">{t.noEntries}</div>}
+            {leaderboards.length === 0 && <div className="text-center py-20 text-[var(--text-muted)] italic">{t.noEntries}</div>}
           </motion.div>
         )}
 
@@ -1301,7 +1363,7 @@ onClick={() => {
              {activeTournaments.length > 0 && (
                <section>
                  <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
-                   <Trophy className="w-5 h-5 text-yellow-400" />
+                   <Trophy className="w-5 h-5 text-[var(--text-accent)]" />
                    <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}</span>
                    {t.activeTournaments}
                  </h2>
@@ -1322,24 +1384,24 @@ onClick={() => {
                               requestFS();
                             }
                           }}
-                          className="bg-gradient-to-br from-blue-600/10 to-blue-400/5 p-4 rounded-[24px] border border-blue-500/20 cursor-pointer active:scale-95 transition-transform"
+                          className="bg-gradient-to-br from-[var(--btn-primary-bg)]/10 to-[var(--accent-bg)]/5 p-4 rounded-[24px] border border-[var(--accent-border)] cursor-pointer active:scale-95 transition-transform"
                         >
-                          <div className="text-[10px] font-black text-yellow-400 text-center uppercase tracking-widest mb-1 line-clamp-2 h-8 overflow-hidden leading-[14px]">{tourney.venueName}</div>
-                          <div className="text-base font-black text-white leading-tight mb-2">{tourney.prize}</div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold mb-2">
+                          <div className="text-[10px] font-black text-[var(--text-accent)] text-center uppercase tracking-widest mb-1 line-clamp-2 h-8 overflow-hidden leading-[14px]">{tourney.venueName}</div>
+                          <div className="text-base font-black text-[var(--text-primary)] leading-tight mb-2">{tourney.prize}</div>
+                          <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] font-bold mb-2">
                             <span className="flex items-center gap-1"><Users className="w-3 h-3" />{entries.length}</span>
                             {playerRank !== null && (
-                              <span className={`text-[11px] font-black ${isWinning ? 'text-yellow-400' : 'text-slate-500'}`}>
+                              <span className={`text-[11px] font-black ${isWinning ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'}`}>
                                 #{playerRank}{isWinning ? ' 🏆' : ''}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                          <div className="flex items-center justify-between pt-2 border-t border-[var(--border-default)]">
                             <div className="flex items-center gap-1">
                               {tourneyGame?.icon && <img src={tourneyGame.icon} alt="" className="w-3.5 h-3.5 object-contain" />}
-                              <span className="text-[9px] font-bold text-slate-400">{tourneyGame?.title[lang] || tourney.gameId}</span>
+                              <span className="text-[9px] font-bold text-[var(--text-subtle)]">{tourneyGame?.title[lang] || tourney.gameId}</span>
                             </div>
-                            <span className="text-[11px] text-blue-500 font-bold font-mono tabular-nums">
+                            <span className="text-[11px] text-[var(--text-accent)] font-bold font-mono tabular-nums">
                               {(() => {
                                 const diff = Math.max(0, tourney.expiresAt?.toMillis() - Date.now());
                                 const totalMins = Math.floor(diff / 60000);
@@ -1355,7 +1417,7 @@ onClick={() => {
              )}
 
              <h2 className="text-2xl font-black uppercase italic tracking-tight mb-2">{t.cityHunt}</h2>
-             <Suspense fallback={null}><TreasureHuntMap venues={RESTAURANTS} pendingCheckIn={location.state?.pendingCheckIn} lang={lang} /></Suspense>
+             <Suspense fallback={<LoadingSpinner icon={MapIcon} />}><TreasureHuntMap venues={RESTAURANTS} pendingCheckIn={location.state?.pendingCheckIn} lang={lang} /></Suspense>
           </motion.div>
         )}
         
@@ -1376,15 +1438,15 @@ onClick={() => {
               <div className="flex gap-2">
                 {isAdmin && (
                   <>
-                    <button onClick={() => setView('admin')} className="p-2 bg-slate-900 rounded-full text-purple-400">
+                    <button onClick={() => setView('admin')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-purple-400">
                       <Activity className="w-5 h-5" />
                     </button>
-                    <button onClick={() => setView('sales-tool')} className="p-2 bg-slate-900 rounded-full text-amber-400">
+                    <button onClick={() => setView('sales-tool')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-amber-400">
                       <BarChart2 className="w-5 h-5" />
                     </button>
                   </>
                 )}
-                <button onClick={() => setIsEditing(!isEditing)} className="p-2 bg-slate-900 rounded-full text-blue-500">
+                <button onClick={() => setIsEditing(!isEditing)} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
                   {isEditing ? <X className="w-5 h-5" /> : <Pencil className="w-5 h-5" />}
                 </button>
               </div>
@@ -1393,60 +1455,60 @@ onClick={() => {
             {!isEditing ? (
               <div className="text-center py-6 space-y-6">
                 <div 
-                  className="w-24 h-24 bg-gradient-to-tr from-blue-600 to-yellow-400 rounded-full mx-auto p-1 shadow-2xl cursor-pointer hover:scale-105 transition-transform"
+                  className="w-24 h-24 bg-gradient-to-tr from-[var(--btn-primary-bg)] to-[var(--accent-bg)] rounded-full mx-auto p-1 shadow-2xl cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => setIsEditing(true)}
                 >
-                  <div className="w-full h-full bg-[#0a0a0c] rounded-full flex items-center justify-center"><Media src={profile.avatar} imgClass="w-10 h-10" textClass="text-4xl" /></div>
+                  <div className="w-full h-full bg-[var(--bg-primary)] rounded-full flex items-center justify-center"><Media src={profile.avatar} imgClass="w-10 h-10" textClass="text-4xl" /></div>
                 </div>
                 <div 
                   className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
                   onClick={() => setIsEditing(true)}
                 >
-                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-yellow-400">{profile.nickname || `HERO_${getUserId().substring(0,8)}`}</h3>
-                  <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mt-1">{t.rank}</p>
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-[var(--text-accent)]">{profile.nickname || `HERO_${getUserId().substring(0,8)}`}</h3>
+                  <p className="text-[var(--text-muted)] font-bold text-[10px] uppercase tracking-widest mt-1">{t.rank}</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-left">
-                  <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl">
-                    <div className="text-lg font-black text-blue-500 italic">
+                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
+                    <div className="text-lg font-black text-[var(--text-accent)] italic">
                       {userLeaderboards.reduce((acc, curr) => acc + (curr.playCount || 1), 0)}
                     </div>
-                    <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none mt-1.5">{t.gamesPlayed}</div>
+                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.gamesPlayed}</div>
                   </div>
-                  <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl">
-                    <div className="text-lg font-black text-yellow-400 italic">
+                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
+                    <div className="text-lg font-black text-[var(--text-accent)] italic">
                       {(() => { try { return Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length; } catch { return 0; }})()}
                     </div>
-                    <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none mt-1.5">{t.cityHunt}</div>
+                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.cityHunt}</div>
                   </div>
-                  <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl">
+                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
                     <div className="text-lg font-black text-emerald-400 italic">
                       {recruitCount}
                     </div>
-                    <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none mt-1.5">{t.recruits}</div>
+                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.recruits}</div>
                   </div>
                 </div>
 
                 {/* Streak & XP Row */}
                 <div className="grid grid-cols-2 gap-2 text-left">
-                  <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl flex items-center gap-3">
-                    <Flame className={`w-6 h-6 ${streak > 0 ? 'text-orange-500' : 'text-slate-600'}`} />
+                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl flex items-center gap-3">
+                    <Flame className={`w-6 h-6 ${streak > 0 ? 'text-orange-500' : 'text-[var(--text-subtle)]'}`} />
                     <div>
                       <div className="text-lg font-black text-orange-400 italic">{streak} {streak === 1 ? t.day : t.days}</div>
-                      <div className="text-[8px] font-black uppercase text-slate-500 tracking-tighter leading-none">{t.streak}</div>
+                      <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none">{t.streak}</div>
                     </div>
                   </div>
-                  <div className="bg-slate-900/50 p-3 rounded-3xl border border-white/5 shadow-xl">
+                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-lg font-black text-purple-400 italic">{t.playerLevel} {getLevel(xp)}</div>
-                      <div className="text-[8px] font-black text-slate-500 uppercase">{xp} XP</div>
+                      <div className="text-[8px] font-black text-[var(--text-muted)] uppercase">{xp} XP</div>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-yellow-400 rounded-full transition-all duration-500" 
+                        className="h-full bg-gradient-to-r from-purple-500 to-[var(--accent-bg)] rounded-full transition-all duration-500" 
                         style={{ width: `${getXpProgress(xp)}%` }}
                       />
                     </div>
-                    <div className="text-[8px] font-black text-slate-500 tracking-tighter leading-none mt-1">{getXpForNextLevel(xp) - xp} {t.xpToNext}</div>
+                    <div className="text-[8px] font-black text-[var(--text-muted)] tracking-tighter leading-none mt-1">{getXpForNextLevel(xp) - xp} {t.xpToNext}</div>
                   </div>
                 </div>
 
@@ -1454,11 +1516,11 @@ onClick={() => {
 
                 {/* My Prizes */}
                   <div className="mt-8 text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-slate-500 ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-[var(--text-muted)] ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
                     </h3>
                     {playerPrizes.length === 0 ? (
-                      <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noPrizes}</div>
+                      <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noPrizes}</div>
                     ) : (
                     <>
                     <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
@@ -1473,18 +1535,18 @@ onClick={() => {
                         const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
                         const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
                         return (
-                          <div key={p.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                          <div key={p.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex items-center justify-between">
                             <div>
-                              <div className="text-sm font-black text-yellow-400">{p.rewardType}</div>
-                              <div className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} {p.score === 1 ? 'pt' : 'pts'}</div>
-                              <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
+                              <div className="text-sm font-black text-[var(--text-accent)]">{p.rewardType}</div>
+                              <div className="text-[10px] text-[var(--text-subtle)] font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} {p.score === 1 ? 'pt' : 'pts'}</div>
+                              <div className="text-[9px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
                             </div>
                             <div className="text-right">
                               {p.code && !redeemed && (
                                 <div className="text-lg font-black text-green-400 font-mono tracking-widest">{p.code}</div>
                               )}
                               <div className={`text-[9px] font-black uppercase tracking-widest ${
-                                redeemed ? 'text-slate-500' : expired ? 'text-red-500' : 'text-green-500'
+                                redeemed ? 'text-[var(--text-muted)]' : expired ? 'text-red-500' : 'text-green-500'
                               }`}>
                                 {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : p.tournamentId ? t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`) : t.claimCode.replace('{code}', p.code || '')}
                               </div>
@@ -1497,7 +1559,7 @@ onClick={() => {
                       <button
                         onClick={loadMorePrizes}
                         disabled={loadingMorePrizes}
-                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors bg-slate-900/30 rounded-xl border border-white/5 disabled:opacity-50"
+                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-subtle)] hover:text-[var(--text-primary)] transition-colors bg-[var(--bg-secondary)]/30 rounded-xl border border-[var(--border-default)] disabled:opacity-50"
                       >
                         {loadingMorePrizes ? 'Loading...' : t.loadAll}
                       </button>
@@ -1508,7 +1570,8 @@ onClick={() => {
 
                 {/* Profile High Scores */}
                 <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">{t.highScores}</h3>
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400" /> {t.highScores}</h3>
                   {userLeaderboards.map(r => {
                     const game = gamesList.find(g => g.id === r.gameId);
                     if (!game) return null;
@@ -1517,16 +1580,16 @@ onClick={() => {
                     const totalPlayers = allGameRecords.length;
                     
                     return (
-                      <div key={r.id} className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center shadow-xl">
+                      <div key={r.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex justify-between items-center shadow-xl">
                         <div className="flex flex-col">
-                          <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5 text-white">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
-                          <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1">
+                          <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5 text-[var(--text-primary)]">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
+                          <span className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mt-1">
                             {getTimeAgo(r.timestamp, lang)} • {r.playCount || 1} PLAYS • RANK: {rank}/{totalPlayers}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-black text-yellow-400 italic font-mono">{r.score}</span>
-                          <button onClick={() => shareScore(game, r.score, lang, profile)} className="text-slate-400 hover:text-blue-400 transition-colors p-1" title={t.share}>
+                          <span className="font-black text-[var(--text-accent)] italic font-mono">{r.score}</span>
+                          <button onClick={() => shareScore(game, r.score, lang, profile)} className="text-[var(--text-subtle)] hover:text-[var(--text-accent)] transition-colors p-1" title={t.share}>
                             <Share2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -1534,13 +1597,13 @@ onClick={() => {
                     );
                   })}
                   {userLeaderboards.length === 0 && (
-                     <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noEntries}</div>
+                     <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noEntries}</div>
                   )}
                 </div>
 
                 {/* Badges */}
                 <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
                     <Award className="w-4 h-4" /> {t.badges}
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
@@ -1554,14 +1617,14 @@ onClick={() => {
                           className={`rounded-lg flex items-center justify-center p-1 transition-all cursor-pointer ${
                             unlocked 
                               ? justUnlocked 
-                                ? 'bg-yellow-400/20 border-2 border-yellow-400 animate-pulse' 
-                                : selectedBadge === badge.id ? 'bg-slate-700/80 border-2 border-slate-400' : 'bg-slate-800/80 border-2 border-white/10' 
-                              : 'bg-slate-900/30 border-2 border-white/5 opacity-40'
+                                ? 'bg-[var(--accent-bg)]/20 border-2 border-[var(--accent-bg)] animate-pulse' 
+                                : selectedBadge === badge.id ? 'bg-[var(--bg-elevated)]/80 border-2 border-[var(--border-strong)]' : 'bg-[var(--bg-elevated)]/80 border-2 border-[var(--border-strong)]' 
+                              : 'bg-[var(--bg-secondary)]/30 border-2 border-[var(--border-default)] opacity-40'
                           }`}
                         >
                           <Media src={badge.icon} imgClass={`w-4 h-4 ${unlocked ? '' : 'grayscale'}`} textClass={`text-base ${unlocked ? '' : 'grayscale'}`} />
                           {justUnlocked && (
-                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full animate-ping" />
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[var(--accent-bg)] rounded-full animate-ping" />
                           )}
                           {unlocked && !justUnlocked && (
                             <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-400 rounded-full" />
@@ -1571,13 +1634,13 @@ onClick={() => {
                     })}
                   </div>
                   {Object.keys(achievements).length === 0 && (
-                    <div className="text-center text-xs text-slate-600 uppercase font-bold tracking-widest py-4 bg-slate-900/30 rounded-2xl border border-dashed border-white/10">{t.noBadges}</div>
+                    <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noBadges}</div>
                   )}
                   {(() => {
                     if (!selectedBadge) {
                       return (
-                        <div className="w-full bg-slate-900/30 rounded-2xl border border-dashed border-white/10 p-5 text-center">
-                          <span className="text-xs text-slate-500 uppercase font-bold tracking-widest">Tap a badge to learn more</span>
+                        <div className="w-full bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)] p-5 text-center">
+                          <span className="text-xs text-[var(--text-muted)] uppercase font-bold tracking-widest">Tap a badge to learn more</span>
                         </div>
                       );
                     }
@@ -1586,18 +1649,18 @@ onClick={() => {
                     const unlocked = !!achievements[selectedBadge];
                     const badgeLabel = (t as any).badge[selectedBadge];
                     return (
-                      <div className="w-full bg-slate-800/80 rounded-2xl border border-white/10 p-4 text-left space-y-2">
+                      <div className="w-full bg-[var(--bg-elevated)]/80 rounded-2xl border border-[var(--border-strong)] p-4 text-left space-y-2">
                         <div className="flex items-center gap-2">
                           <Media src={badgeDef.icon} imgClass="w-4 h-4" textClass="text-base" />
-                          <span className="text-sm font-black uppercase text-white tracking-wider">{badgeLabel?.name || selectedBadge}</span>
+                          <span className="text-sm font-black uppercase text-[var(--text-primary)] tracking-wider">{badgeLabel?.name || selectedBadge}</span>
                         </div>
-                        <p className="text-xs text-slate-400 leading-relaxed">{badgeLabel?.desc || ''}</p>
+                        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">{badgeLabel?.desc || ''}</p>
                         {unlocked ? (
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
                             {(() => { const d = Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000); return `Awarded ${d} ${d === 1 ? 'day' : 'days'} ago`; })()}
                           </p>
                         ) : (
-                          <p className="text-[10px] text-slate-600 uppercase tracking-wider font-bold">Not yet unlocked</p>
+                          <p className="text-[10px] text-[var(--text-subtle)] uppercase tracking-wider font-bold">Not yet unlocked</p>
                         )}
                       </div>
                     );
@@ -1606,8 +1669,9 @@ onClick={() => {
 
                 {/* Notification Settings */}
                 <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">{t.notifications}</h3>
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-3 shadow-xl">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                    <Bell className="w-4 h-4" /> {t.notifications}</h3>
+                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
                     {([
                       { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },
                       { key: 'gameReminders', label: t.gameReminders, desc: t.gameRemindersDesc },
@@ -1618,10 +1682,10 @@ onClick={() => {
                       return (
                         <div key={key} className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <Bell className={`w-4 h-4 ${enabled ? 'text-yellow-400' : 'text-slate-600'}`} />
+                            <Bell className={`w-4 h-4 ${enabled ? 'text-[var(--text-accent)]' : 'text-[var(--text-subtle)]'}`} />
                             <div>
-                              <div className="text-xs font-bold uppercase tracking-widest text-white">{label}</div>
-                              <div className="text-[9px] text-slate-500 uppercase font-black tracking-wider">{desc}</div>
+                              <div className="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">{label}</div>
+                              <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-wider">{desc}</div>
                             </div>
                           </div>
                           <button
@@ -1654,7 +1718,7 @@ onClick={() => {
                                 }, { merge: true }).catch(console.error);
                               }
                             }}
-                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-slate-800 text-slate-500'} ${isRequestingNotif ? 'opacity-50' : ''}`}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${isRequestingNotif ? 'opacity-50' : ''}`}
                           >
                             {enabled ? 'ON' : 'OFF'}
                           </button>
@@ -1666,11 +1730,12 @@ onClick={() => {
 
                 {/* Music Settings */}
                 <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">{t.musicSettings}</h3>
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-3 shadow-xl">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                    <Music className="w-4 h-4" /> {t.musicSettings}</h3>
+                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Volume2 className="w-4 h-4 text-slate-400" />
+                        <Volume2 className="w-4 h-4 text-[var(--text-subtle)]" />
                         <input 
                           type="range" 
                           min="0" 
@@ -1678,7 +1743,7 @@ onClick={() => {
                           step="0.1"
                           value={volume}
                           onChange={(e) => setVolume(parseFloat(e.target.value))}
-                          className="w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                          className="w-20 h-1.5 bg-[var(--bg-elevated)] rounded-lg appearance-none cursor-pointer accent-[var(--text-accent)]"
                         />
                       </div>
                       <div className="flex items-center gap-3">
@@ -1691,13 +1756,13 @@ onClick={() => {
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => prevTrack()} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-slate-800 text-slate-500'}`}
+                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipBack className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => skipTrack()} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-slate-800 text-slate-500'}`}
+                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipForward className="w-4 h-4" />
                           </button>
@@ -1715,7 +1780,7 @@ onClick={() => {
                               setActiveTracks([...activeTracks, key as TrackKey]);
                             }
                           }}
-                          className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${activeTracks.includes(key as TrackKey) ? 'bg-[#0057B8] text-yellow-400' : 'bg-slate-800 text-slate-500'} ${currentTrack === key ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-slate-900' : ''}`}
+                          className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${activeTracks.includes(key as TrackKey) ? 'bg-[#0057B8] text-[var(--text-accent)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${currentTrack === key ? 'ring-2 ring-[var(--accent-bg)] ring-offset-2 ring-offset-[var(--bg-secondary)]' : ''}`}
                         >
                           {(t as any).music[key] || key}
                         </button>
@@ -1726,59 +1791,122 @@ onClick={() => {
 
                 {/* Language Settings */}
                 <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Language</h3>
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-xl">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                    <Globe className="w-4 h-4" /> {t.themeLanguageInverse}</h3>
+                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] shadow-xl">
                     <div className="flex items-center justify-center gap-8">
                       <button onClick={() => setLang('uk')} className="flex flex-col items-center gap-2 group">
                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
                           lang === 'uk'
-                            ? 'bg-gradient-to-b from-blue-600/30 to-yellow-400/30 border-2 border-yellow-400 shadow-lg shadow-yellow-400/10 scale-110'
-                            : 'bg-slate-800/50 border-2 border-white/10 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
                         }`}>
                           🇺🇦
                         </div>
                         <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          lang === 'uk' ? 'text-yellow-400' : 'text-slate-500'
+                          lang === 'uk' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
                         }`}>
-                          Українська
+                          {t.langUkrainian}
                         </span>
                       </button>
                       <button onClick={() => setLang('en')} className="flex flex-col items-center gap-2 group">
                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
                           lang === 'en'
                             ? 'bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400 shadow-lg shadow-blue-500/10 scale-110'
-                            : 'bg-slate-800/50 border-2 border-white/10 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
                         }`}>
                           🇺🇸
                         </div>
                         <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          lang === 'en' ? 'text-blue-400' : 'text-slate-500'
+                          lang === 'en' ? 'text-blue-400' : 'text-[var(--text-muted)]'
                         }`}>
-                          English
+                          {t.langEnglish}
                         </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Theme Settings */}
+                <div className="mt-8 text-left space-y-4">
+                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
+                  </h3>
+                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] shadow-xl space-y-4">
+                    <div className="flex items-center justify-center gap-8">
+                      <button onClick={() => setFamily('odesa')} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                          family === 'odesa'
+                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                        }`}>
+                          ⚓
+                        </div>
+                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
+                          family === 'odesa' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
+                        }`}>
+                          {t.themeOdesa}
+                        </span>
+                      </button>
+                      <button onClick={() => setFamily('ukraine')} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                          family === 'ukraine'
+                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                        }`}>
+                          🇺🇦
+                        </div>
+                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
+                          family === 'ukraine' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
+                        }`}>
+                          {t.themeUkraine}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-2 border-t border-[var(--border-default)]">
+                      <button
+                        onClick={() => toggleMode()}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                          mode === 'dark'
+                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
+                            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                        }`}
+                      >
+                        <Moon className="w-4 h-4" /> {t.themeDark}
+                      </button>
+                      <span className="text-[var(--text-subtle)] text-xs font-bold">|</span>
+                      <button
+                        onClick={() => toggleMode()}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                          mode === 'light'
+                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
+                            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                        }`}
+                      >
+                        <Sun className="w-4 h-4" /> {t.themeLight}
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 space-y-6">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--bg-secondary)]/50 p-6 rounded-3xl border border-[var(--border-default)] space-y-6">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-3 tracking-widest">{t.chooseHero}</label>
+                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase block mb-3 tracking-widest">{t.chooseHero}</label>
                   <div className="grid grid-cols-4 gap-4">
                     {AVATARS.map(a => (
-                      <div key={a} onClick={() => setEditAvatar(a)} className={`h-12 flex items-center justify-center rounded-2xl cursor-pointer transition-transform hover:scale-110 ${editAvatar === a ? 'border-2 border-yellow-400 bg-yellow-400/10' : 'bg-black/40'}`}>
+                      <div key={a} onClick={() => setEditAvatar(a)} className={`h-12 flex items-center justify-center rounded-2xl cursor-pointer transition-transform hover:scale-110 ${editAvatar === a ? 'border-2 border-[var(--accent-bg)] bg-[var(--accent-bg)]/10' : 'bg-[var(--bg-elevated)]/40'}`}>
                         <Media src={a} imgClass="w-7 h-7" textClass="text-2xl" />
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2 tracking-widest">{t.cityNickname}</label>
-                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-black border border-slate-700 rounded-xl p-4 text-white font-black italic outline-none focus:border-yellow-400" placeholder={t.nicknamePlaceholder} maxLength={15} />
+                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase block mb-2 tracking-widest">{t.cityNickname}</label>
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-4 text-[var(--text-primary)] font-black italic outline-none focus:border-[var(--accent-bg)]" placeholder={t.nicknamePlaceholder} maxLength={15} />
                   {nameError && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase">{nameError}</p>}
                 </div>
-                <button onClick={saveProfile} className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-blue-900/20">{t.saveProfile}</button>
+                <button onClick={saveProfile} className="w-full bg-[var(--btn-primary-bg)] text-[var(--text-primary)] py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-[var(--accent-bg)]/30">{t.saveProfile}</button>
               </motion.div>
             )}
           </motion.div>
@@ -1786,19 +1914,19 @@ onClick={() => {
 
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/90 to-transparent z-50 pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[var(--bg-primary)] via-[#0a0a0c]/90 to-transparent z-50 pointer-events-none">
         <nav className="max-w-[300px] mx-auto w-full pointer-events-auto">
-          <div className="bg-[#0a0a0c]/80 backdrop-blur-xl border-t-4 border-[#0057B8] rounded-full p-2 flex justify-between shadow-2xl">
-            <button onClick={() => setView('home')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'home' ? 'bg-white/10 text-yellow-400' : 'text-slate-400 hover:text-slate-200'}`}>
+          <div className="bg-[var(--bg-primary)]/80 backdrop-blur-xl border-t-4 border-[#0057B8] rounded-full p-2 flex justify-between shadow-2xl">
+            <button onClick={() => setView('home')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'home' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <Gamepad2 className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('leaderboard')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'leaderboard' ? 'bg-white/10 text-yellow-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => setView('leaderboard')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'leaderboard' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <BarChart2 className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('venues')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'venues' ? 'bg-white/10 text-yellow-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => setView('venues')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'venues' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <MapIcon className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('me')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'me' ? 'bg-white/10 text-yellow-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => setView('me')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'me' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <User className="w-6 h-6 backface-hidden" />
             </button>
           </div>

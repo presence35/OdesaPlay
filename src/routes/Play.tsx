@@ -103,8 +103,8 @@ export default function Play() {
   if (!toastMessage) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80">
-      <div className="bg-yellow-400 text-black px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--bg-overlay)]">
+      <div className="bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl">
         {toastMessage}
       </div>
     </div>

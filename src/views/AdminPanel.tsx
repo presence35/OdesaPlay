@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { useVenues } from '../data/restaurants';
 import { useAdminStats, useQrBatches, type QrBatch } from '../hooks/useAdminData';
 import { translations, type Language } from '../language';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   Activity, Users, Ticket, Trophy, MapPin, Share2, Gamepad2, ExternalLink,
   Plus, X, Pencil, ToggleLeft, ToggleRight, QrCode,
@@ -158,15 +159,15 @@ export default function AdminPanel({ lang }: { lang: Language }) {
   };
 
   return (
-    <div className="text-slate-200 font-sans">
+    <div className="text-[var(--text-primary)] font-sans">
       <div className="space-y-6">
         {/* Tab Switcher */}
-        <div className="flex gap-2 bg-slate-900 p-1 rounded-xl">
+        <div className="flex gap-2 bg-[var(--bg-secondary)] p-1 rounded-xl">
           {(['dashboard', 'venues'] as const).map(tabKey => (
             <button
               key={tabKey}
               onClick={() => setTab(tabKey)}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${tab === tabKey ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${tab === tabKey ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-muted)]'}`}
             >
               {tabKey === 'dashboard' ? t.dashboard : t.venues}
             </button>
@@ -189,17 +190,12 @@ export default function AdminPanel({ lang }: { lang: Language }) {
             )}
 
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-pulse flex flex-col items-center">
-                  <Activity className="w-12 h-12 text-blue-500 mb-4 animate-spin" />
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">{t.loadingData}</p>
-                </div>
-              </div>
+              <LoadingSpinner icon={Activity} text={t.loadingData} />
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t.dashboard}</h2>
-                  <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{t.dashboard}</h2>
+                  <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-[var(--btn-primary-bg)] hover:bg-blue-500 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
                     {t.refreshData}
                   </button>
                 </div>
@@ -211,7 +207,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   <StatCard icon={<Users className="w-20 h-20 text-blue-500/10" />} value={stats.totalUsers || 847} label={t.totalUsers} decorator={<Users className="w-4 h-4 text-blue-400" />} />
                   <StatCard icon={<MapPin className="w-20 h-20 text-emerald-500/10" />} value={stats.totalCheckins || 628} label={t.totalCheckins} decorator={<MapPin className="w-4 h-4 text-emerald-400" />} />
                   <StatCard icon={<Ticket className="w-20 h-20 text-purple-500/10" />} value={stats.totalClaims || 110} label={t.prizesClaimed} decorator={<Ticket className="w-4 h-4 text-purple-400" />} />
-                  <StatCard icon={<Trophy className="w-20 h-20 text-yellow-500/10" />} value={stats.totalLeaderboardEntries || 412} label={t.highScores} decorator={<Trophy className="w-4 h-4 text-yellow-400" />} />
+                  <StatCard icon={<Trophy className="w-20 h-20 text-yellow-500/10" />} value={stats.totalLeaderboardEntries || 412} label={t.highScores} decorator={<Trophy className="w-4 h-4 text-[var(--text-accent)]" />} />
                   <StatCard icon={<Share2 className="w-20 h-20 text-cyan-500/10" />} value={stats.referralClicks || 340} label={t.referralClicks} decorator={<Share2 className="w-4 h-4 text-cyan-400" />} />
                   <StatCard icon={<ExternalLink className="w-20 h-20 text-green-500/10" />} value={stats.referralConversions || 89} label={t.conversions} decorator={<ExternalLink className="w-4 h-4 text-green-400" />} />
                   <StatCard icon={<Activity className="w-20 h-20 text-orange-500/10" />} value={(parseFloat(conversionRate) || 26) + '%'} label={t.convRate} decorator={<Activity className="w-4 h-4 text-orange-400" />} />
@@ -220,11 +216,11 @@ export default function AdminPanel({ lang }: { lang: Language }) {
 
                 {/* Venue Filter */}
                 <div className="flex items-center gap-3">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filter by venue:</label>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Filter by venue:</label>
                   <select
                     value={selectedVenueId || ''}
                     onChange={e => setSelectedVenueId(e.target.value || null)}
-                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-blue-500 max-w-xs"
+                    className="bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] max-w-xs"
                   >
                     <option value="">All Venues</option>
                     {venues.filter(v => !v.disabled).map(v => (
@@ -232,7 +228,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                     ))}
                   </select>
                   {selectedVenueId && (
-                    <span className="text-xs text-slate-500 font-mono">
+                    <span className="text-xs text-[var(--text-muted)] font-mono">
                       showing {activeSessions.length}
                     </span>
                   )}
@@ -244,10 +240,10 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   live={activeSessions.length}
                   headers={['Player', 'Game', 'Venue', 'Started']}
                   rows={activeSessions.map(s => [
-                    <span className="flex items-center gap-2"><span className="text-2xl">{s.avatar || '👤'}</span><span className="text-white">{s.nickname}</span></span>,
-                    <span className="text-slate-300">{s.gameTitle || s.gameId}</span>,
-                    <span className="text-slate-400">{getVenueName(s.venueId)}</span>,
-                    <span className="text-slate-400 text-right text-xs">{getTimeAgo(s.startedAt)}</span>,
+                    <span className="flex items-center gap-2"><span className="text-2xl">{s.avatar || '👤'}</span><span className="text-[var(--text-primary)]">{s.nickname}</span></span>,
+                    <span className="text-[var(--text-muted)]">{s.gameTitle || s.gameId}</span>,
+                    <span className="text-[var(--text-subtle)]">{getVenueName(s.venueId)}</span>,
+                    <span className="text-[var(--text-subtle)] text-right text-xs">{getTimeAgo(s.startedAt)}</span>,
                   ])}
                   emptyMessage={t.noActivePlayers}
                 />
@@ -258,22 +254,22 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                     icon={<Share2 className="text-cyan-400 w-5 h-5" />}
                     headers={['Referrer', 'Visitor', 'Type', 'Time']}
                     rows={[...referralEvents].sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)).slice(0, 20).map(r => [
-                      <span className="text-white font-medium">{getProfileName(r.referrerId)}</span>,
-                      <span className="text-slate-300">{getProfileName(r.visitorId)}</span>,
+                      <span className="text-[var(--text-primary)] font-medium">{getProfileName(r.referrerId)}</span>,
+                      <span className="text-[var(--text-muted)]">{getProfileName(r.visitorId)}</span>,
                       <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${r.type === 'conversion' ? 'bg-green-500/20 text-green-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{r.type === 'conversion' ? t.conversion : t.click}</span>,
-                      <span className="text-slate-400 text-right text-xs">{formatDate(r.timestamp)}</span>,
+                      <span className="text-[var(--text-subtle)] text-right text-xs">{formatDate(r.timestamp)}</span>,
                     ])}
                     emptyMessage={t.noReferrals}
                   />
                   <DashboardTable
                     title={t.recentLeaderboardUpdates}
-                    icon={<Trophy className="text-yellow-400 w-5 h-5" />}
+                    icon={<Trophy className="text-[var(--text-accent)] w-5 h-5" />}
                     headers={['Player', 'Game', 'Score', 'Time']}
                     rows={recentLeaderboard.map(l => [
-                      <span className="flex items-center gap-2"><span className="text-2xl">{l.avatar || '👤'}</span><span className="text-white">{l.nickname}</span></span>,
-                      <span className="text-slate-300">{l.gameId}</span>,
-                      <span className="text-right font-black text-yellow-400">{l.score?.toLocaleString()}</span>,
-                      <span className="text-slate-400 text-right text-xs">{formatDate(l.timestamp)}</span>,
+                      <span className="flex items-center gap-2"><span className="text-2xl">{l.avatar || '👤'}</span><span className="text-[var(--text-primary)]">{l.nickname}</span></span>,
+                      <span className="text-[var(--text-muted)]">{l.gameId}</span>,
+                      <span className="text-right font-black text-[var(--text-accent)]">{l.score?.toLocaleString()}</span>,
+                      <span className="text-[var(--text-subtle)] text-right text-xs">{formatDate(l.timestamp)}</span>,
                     ])}
                     emptyMessage={t.noScores}
                     wide
@@ -287,20 +283,20 @@ export default function AdminPanel({ lang }: { lang: Language }) {
         {/* ===== VENUES TAB ===== */}
         {tab === 'venues' && (
           <div className="space-y-6">
-            <section className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-              <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between gap-4 flex-wrap">
+            <section className="bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-3xl overflow-hidden">
+              <div className="p-6 border-b border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <QrCode className="text-blue-400 w-5 h-5" />
-                  <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t.qrBatches}</h2>
-                  <span className="text-xs text-slate-500 font-mono">{unassignedBatches.length} {t.unassigned.toLowerCase()}</span>
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{t.qrBatches}</h2>
+                  <span className="text-xs text-[var(--text-muted)] font-mono">{unassignedBatches.length} {t.unassigned.toLowerCase()}</span>
                 </div>
-                <button onClick={handleGenerateBatch} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
+                <button onClick={handleGenerateBatch} className="flex items-center gap-2 bg-[var(--btn-primary-bg)] hover:bg-blue-500 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
                   <Plus className="w-4 h-4" /> {t.generateBatch}
                 </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-800/50 text-slate-400 uppercase text-xs tracking-wider">
+                  <thead className="bg-[var(--bg-elevated)]/50 text-[var(--text-subtle)] uppercase text-xs tracking-wider">
                     <tr>
                       <th className="p-3 font-semibold">{t.managerCode}</th>
                       <th className="p-3 font-semibold">{t.checkinCode}</th>
@@ -311,23 +307,23 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
                     {batches.length === 0 && (
-                      <tr><td colSpan={5} className="p-3 text-center text-slate-500">{t.noBatches}</td></tr>
+                      <tr><td colSpan={5} className="p-3 text-center text-[var(--text-muted)]">{t.noBatches}</td></tr>
                     )}
                     {batches.map(b => {
                       const assignedVenue = b.venueId ? venues.find(v => v.id === b.venueId) : null;
                       const shortAlias = assignedVenue?.short?.en || '';
                       return (
-                        <tr key={b.id} className="hover:bg-slate-800/30 transition-colors">
-                          <td className="p-3 font-mono text-yellow-400">{b.managerCode}</td>
+                        <tr key={b.id} className="hover:bg-[var(--bg-elevated)]/30 transition-colors">
+                          <td className="p-3 font-mono text-[var(--text-accent)]">{b.managerCode}</td>
                           <td className="p-3 font-mono text-cyan-400">{b.checkinCode}</td>
-                          <td className="p-3 font-mono text-xs text-slate-400">{shortAlias || '—'}</td>
+                          <td className="p-3 font-mono text-xs text-[var(--text-subtle)]">{shortAlias || '—'}</td>
                           <td className="p-3">
                             {b.venueId ? (
                               <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold uppercase tracking-wider">
                                 {t.batchAssigned} {assignedVenue ? assignedVenue.short?.en || assignedVenue.name?.en : b.venueId}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-700 text-slate-300 rounded-full text-xs font-bold uppercase tracking-wider">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-[var(--bg-elevated)] text-[var(--text-muted)] rounded-full text-xs font-bold uppercase tracking-wider">
                                 {t.unassigned}
                               </span>
                             )}
@@ -336,21 +332,21 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setPreviewQr({ batch: b, type: 'manager' }); }}
-                                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                                className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors"
                                 title="Manager QR"
                               >
-                                <QrCode className="w-4 h-4 text-yellow-400" />
+                                <QrCode className="w-4 h-4 text-[var(--text-accent)]" />
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setPreviewQr({ batch: b, type: 'checkin' }); }}
-                                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                                className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors"
                                 title="Check-in QR"
                               >
                                 <QrCode className="w-4 h-4 text-cyan-400" />
                               </button>
                               {!b.venueId && (
                                 <select value="" onChange={e => { if (e.target.value) handleAssignBatch(b.id, e.target.value); }}
-                                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-blue-500">
+                                  className="bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)]">
                                   <option value="">{t.selectVenue}...</option>
                                   {venues.filter(v => !v.disabled && !assignedBatches.some(b => b.venueId === v.id)).map(v => (
                                     <option key={v.id} value={v.id}>{v.name?.en || v.id}</option>
@@ -367,12 +363,12 @@ export default function AdminPanel({ lang }: { lang: Language }) {
               </div>
             </section>
 
-            <section className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-              <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between gap-4 flex-wrap">
+            <section className="bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-3xl overflow-hidden">
+              <div className="p-6 border-b border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <MapPin className="text-emerald-400 w-5 h-5" />
-                  <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t.venues}</h2>
-                  <span className="text-xs text-slate-500 font-mono">{venues.length} {t.total}</span>
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{t.venues}</h2>
+                  <span className="text-xs text-[var(--text-muted)] font-mono">{venues.length} {t.total}</span>
                 </div>
                 <button onClick={() => { setForm(emptyForm); setEditVenueId(null); setShowForm(true); }}
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
@@ -381,7 +377,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-800/50 text-slate-400 uppercase text-xs tracking-wider">
+                  <thead className="bg-[var(--bg-elevated)]/50 text-[var(--text-subtle)] uppercase text-xs tracking-wider">
                     <tr>
                       <th className="p-4 font-semibold">{t.shortCode}</th>
                       <th className="p-4 font-semibold">{t.venueName}</th>
@@ -392,14 +388,14 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
                     {venues.length === 0 && (
-                      <tr><td colSpan={5} className="p-4 text-center text-slate-500">{t.noVenues}</td></tr>
+                      <tr><td colSpan={5} className="p-4 text-center text-[var(--text-muted)]">{t.noVenues}</td></tr>
                     )}
                     {venues.map(v => {
                       const venueBatch = batches.find(b => b.venueId === v.id);
                       return (
-                        <tr key={v.id} className={`hover:bg-slate-800/30 transition-colors ${v.disabled ? 'opacity-50' : ''}`}>
-                          <td className="p-4 font-mono font-bold text-white">{v.short?.en || v.id}</td>
-                          <td className="p-4 text-white">{v.name?.en}</td>
+                        <tr key={v.id} className={`hover:bg-[var(--bg-elevated)]/30 transition-colors ${v.disabled ? 'opacity-50' : ''}`}>
+                          <td className="p-4 font-mono font-bold text-[var(--text-primary)]">{v.short?.en || v.id}</td>
+                          <td className="p-4 text-[var(--text-primary)]">{v.name?.en}</td>
                           <td className="p-4">
                             {v.disabled ? (
                               <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider">{t.disabled}</span>
@@ -412,15 +408,15 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                           </td>
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => handleEditVenue(v)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title={t.editVenue}>
-                                <Pencil className="w-4 h-4 text-slate-400" />
+                              <button onClick={() => handleEditVenue(v)} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors" title={t.editVenue}>
+                                <Pencil className="w-4 h-4 text-[var(--text-subtle)]" />
                               </button>
                               {venueBatch?.managerCode && (
-                                <button onClick={() => window.open(`${origin}/manager?v=${venueBatch.managerCode}`, '_blank')} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title="Manager Hub">
-                                  <ExternalLink className="w-4 h-4 text-yellow-400" />
+                                <button onClick={() => window.open(`${origin}/manager?v=${venueBatch.managerCode}`, '_blank')} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors" title="Manager Hub">
+                                  <ExternalLink className="w-4 h-4 text-[var(--text-accent)]" />
                                 </button>
                               )}
-                              <button onClick={() => handleToggleDisable(v)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title={v.disabled ? t.enableVenue : t.disableVenue}>
+                              <button onClick={() => handleToggleDisable(v)} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors" title={v.disabled ? t.enableVenue : t.disableVenue}>
                                 {v.disabled ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4 text-red-400" />}
                               </button>
                             </div>
@@ -440,69 +436,69 @@ export default function AdminPanel({ lang }: { lang: Language }) {
       {/* Venue Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white uppercase tracking-wider">{editVenueId ? t.editVenue : t.addVenue}</h3>
-              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
-                <X className="w-5 h-5 text-slate-400" />
+              <h3 className="text-xl font-bold text-[var(--text-primary)] uppercase tracking-wider">{editVenueId ? t.editVenue : t.addVenue}</h3>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors">
+                <X className="w-5 h-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueName}</label>
-                  <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueName}</label>
+                  <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueNameUk}</label>
-                  <input value={form.nameUk} onChange={e => setForm({ ...form, nameUk: e.target.value })} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueNameUk}</label>
+                  <input value={form.nameUk} onChange={e => setForm({ ...form, nameUk: e.target.value })} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.shortCode}</label>
-                  <input value={form.shortEn} onChange={e => setForm({ ...form, shortEn: e.target.value.toUpperCase() })} maxLength={5} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm font-mono uppercase" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.shortCode}</label>
+                  <input value={form.shortEn} onChange={e => setForm({ ...form, shortEn: e.target.value.toUpperCase() })} maxLength={5} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm font-mono uppercase" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.shortCode}</label>
-                  <input value={form.shortUk} onChange={e => setForm({ ...form, shortUk: e.target.value.toUpperCase() })} maxLength={5} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm font-mono uppercase" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.shortCode}</label>
+                  <input value={form.shortUk} onChange={e => setForm({ ...form, shortUk: e.target.value.toUpperCase() })} maxLength={5} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm font-mono uppercase" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueAddress}</label>
-                  <input value={form.addressEn} onChange={e => setForm({ ...form, addressEn: e.target.value })} placeholder="Derybasivska St, 14" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueAddress}</label>
+                  <input value={form.addressEn} onChange={e => setForm({ ...form, addressEn: e.target.value })} placeholder="Derybasivska St, 14" className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueAddressUk}</label>
-                  <input value={form.addressUk} onChange={e => setForm({ ...form, addressUk: e.target.value })} placeholder="вул. Дерибасівська, 14" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueAddressUk}</label>
+                  <input value={form.addressUk} onChange={e => setForm({ ...form, addressUk: e.target.value })} placeholder="вул. Дерибасівська, 14" className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueLat}</label>
-                  <input value={form.lat} onChange={e => setForm({ ...form, lat: e.target.value })} type="number" step="any" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueLat}</label>
+                  <input value={form.lat} onChange={e => setForm({ ...form, lat: e.target.value })} type="number" step="any" className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.venueLng}</label>
-                  <input value={form.lng} onChange={e => setForm({ ...form, lng: e.target.value })} type="number" step="any" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm" />
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.venueLng}</label>
+                  <input value={form.lng} onChange={e => setForm({ ...form, lng: e.target.value })} type="number" step="any" className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm" />
                 </div>
               </div>
-              <div className="border-t border-slate-700 pt-4">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Codes</p>
+              <div className="border-t border-[var(--border-strong)] pt-4">
+                <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Codes</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.managerCode}</label>
-                    <input value={form.managerCode} onChange={e => setForm({ ...form, managerCode: e.target.value.toUpperCase() })} maxLength={6} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm font-mono uppercase" />
+                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.managerCode}</label>
+                    <input value={form.managerCode} onChange={e => setForm({ ...form, managerCode: e.target.value.toUpperCase() })} maxLength={6} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm font-mono uppercase" />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">{t.checkinCode}</label>
-                    <input value={form.checkinCode} onChange={e => setForm({ ...form, checkinCode: e.target.value.toUpperCase() })} maxLength={6} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm font-mono uppercase" />
+                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t.checkinCode}</label>
+                    <input value={form.checkinCode} onChange={e => setForm({ ...form, checkinCode: e.target.value.toUpperCase() })} maxLength={6} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-bg)] text-sm font-mono uppercase" />
                   </div>
                 </div>
               </div>
               <button onClick={handleSaveVenue} disabled={saving || !form.nameEn || !form.nameUk}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors mt-2">
+                className="w-full bg-[var(--btn-primary-bg)] hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors mt-2">
                 {saving ? t.saving : (editVenueId ? t.updateVenue : t.createVenue)}
               </button>
             </div>
@@ -519,20 +515,20 @@ export default function AdminPanel({ lang }: { lang: Language }) {
           : `${origin}/play?c=${previewCheckinCode}`;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPreviewQr(null)}>
-            <div className="bg-white rounded-3xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] rounded-3xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wider">
+                <h3 className="text-xl font-bold text-[var(--text-primary)] uppercase tracking-wider">
                   {previewQr.type === 'manager' ? 'Manager Hub QR' : (previewVenue?.name?.en || 'Check-in QR')}
                 </h3>
-                <button onClick={() => setPreviewQr(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
+                <button onClick={() => setPreviewQr(null)} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-[var(--text-subtle)]" />
                 </button>
               </div>
               <div className="text-center">
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-4 rounded-2xl inline-block">
+                <div className="bg-[var(--bg-secondary)] border-2 border-dashed border-[var(--border-default)] p-4 rounded-2xl inline-block">
                   <QRCodeSVG value={previewUrl} size={240} />
                 </div>
-                <p className="mt-4 font-mono text-sm text-slate-600 break-all">{previewUrl.replace(/^https?:\/\//, '')}</p>
+                <p className="mt-4 font-mono text-sm text-[var(--text-subtle)] break-all">{previewUrl.replace(/^https?:\/\//, '')}</p>
               </div>
             </div>
           </div>
@@ -571,7 +567,7 @@ function AirRaidMonitor() {
     <div className={`border rounded-3xl p-5 mb-6 transition-colors ${
       state === 'active' ? 'bg-red-900/30 border-red-500/40' :
       state === 'error' ? 'bg-yellow-900/30 border-yellow-500/40' :
-      'bg-slate-900/50 border-white/5'
+      'bg-[var(--bg-secondary)]/50 border-[var(--border-default)]'
     }`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -586,14 +582,14 @@ function AirRaidMonitor() {
               <h3 className="text-lg font-black uppercase tracking-wider">Odesa Air Raid</h3>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                 state === 'active' ? 'bg-red-500/20 text-red-400' :
-                state === 'error' ? 'bg-yellow-500/20 text-yellow-400' :
+                state === 'error' ? 'bg-yellow-500/20 text-[var(--text-accent)]' :
                 state === 'clear' ? 'bg-emerald-500/20 text-emerald-400' :
-                'bg-slate-700 text-slate-400'
+                'bg-[var(--bg-elevated)] text-[var(--text-subtle)]'
               }`}>
                 {state === 'active' ? 'ACTIVE' : state === 'clear' ? 'CLEAR' : state === 'error' ? 'ERROR' : '...'}
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mt-1">
               Source: siren.pp.ua • Last checked: {lastCheck}
             </p>
           </div>
@@ -614,10 +610,10 @@ function AirRaidMonitor() {
 
 function StatCard({ icon, value, label, decorator }: { icon: React.ReactNode; value: string | number; label: string; decorator: React.ReactNode }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col items-center text-center justify-center relative overflow-hidden">
+    <div className="bg-[var(--bg-secondary)] border border-[var(--border-strong)] p-6 rounded-2xl flex flex-col items-center text-center justify-center relative overflow-hidden">
       <div className="absolute -right-4 -top-4">{icon}</div>
-      <div className="text-4xl font-black text-white relative z-10">{value}</div>
-      <div className="text-xs uppercase font-bold text-slate-500 tracking-widest mt-2 relative z-10 w-full flex items-center justify-center gap-2">
+      <div className="text-4xl font-black text-[var(--text-primary)] relative z-10">{value}</div>
+      <div className="text-xs uppercase font-bold text-[var(--text-muted)] tracking-widest mt-2 relative z-10 w-full flex items-center justify-center gap-2">
         {decorator} {label}
       </div>
     </div>
@@ -628,10 +624,10 @@ function DashboardTable({ title, icon, live, headers, rows, emptyMessage, wide }
   title: string; icon: React.ReactNode; live?: number; headers: string[]; rows: React.ReactNode[][]; emptyMessage: string; wide?: boolean;
 }) {
   return (
-    <div className={`bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col ${wide ? 'lg:col-span-2' : ''}`}>
-      <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
+    <div className={`bg-[var(--bg-secondary)] border border-[var(--border-strong)] rounded-3xl overflow-hidden flex flex-col ${wide ? 'lg:col-span-2' : ''}`}>
+      <div className="p-6 border-b border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 flex items-center gap-3">
         {icon}
-        <h2 className="text-lg font-bold text-white uppercase tracking-wider">{title}</h2>
+        <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{title}</h2>
         {live !== undefined && live > 0 && (
           <span className="ml-auto inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold uppercase tracking-wider">
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />{live} live
@@ -640,15 +636,15 @@ function DashboardTable({ title, icon, live, headers, rows, emptyMessage, wide }
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-slate-800/50 text-slate-400 uppercase text-xs tracking-wider">
+          <thead className="bg-[var(--bg-elevated)]/50 text-[var(--text-subtle)] uppercase text-xs tracking-wider">
             <tr>{headers.map(h => <th key={h} className="p-4 font-semibold">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
             {rows.length === 0 && (
-              <tr><td colSpan={headers.length} className="p-4 text-center text-slate-500">{emptyMessage}</td></tr>
+              <tr><td colSpan={headers.length} className="p-4 text-center text-[var(--text-muted)]">{emptyMessage}</td></tr>
             )}
             {rows.map((row, i) => (
-              <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+              <tr key={i} className="hover:bg-[var(--bg-elevated)]/30 transition-colors">
                 {row.map((cell, j) => <td key={j} className="p-4">{cell}</td>)}
               </tr>
             ))}

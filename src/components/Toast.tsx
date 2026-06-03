@@ -34,7 +34,7 @@ export default function Toast() {
   return (
     <div className="fixed top-4 left-0 right-0 z-[200] flex justify-center pointer-events-none">
       <div
-        className="bg-yellow-400 text-black px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl pointer-events-auto cursor-pointer"
+        className="bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-8 py-4 rounded-full font-black text-xl italic uppercase shadow-2xl pointer-events-auto cursor-pointer"
         onClick={dismiss}
       >
         {message}
