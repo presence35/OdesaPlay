@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #020617; /* Slate 950 */
+  color: #F8FAFC;
+  touch-action: pan-x pan-y;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Hide scrollbars for the game container */
+::-webkit-scrollbar {
+  display: none;
+}

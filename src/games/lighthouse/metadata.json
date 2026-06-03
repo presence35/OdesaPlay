@@ -1,0 +1,6 @@
+{
+  "name": "Vorontsov Lighthouse Keeper",
+  "description": "Guide ships through the Black Sea into the port of Odesa. Manage light signals, radio frequencies, and resources during storms.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

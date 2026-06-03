@@ -1,7 +1,7 @@
 {
-  "name": "react-example",
+  "name": "OdesaPlay",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.1",
   "engines": {
     "node": ">=21.7.3"
   },
