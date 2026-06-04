@@ -43,7 +43,7 @@ export async function shareScore(game: Game, score: number, lang: Language, prof
   const shareData = {
     title: 'OdesaPlay',
     text: t.shareText.replace('{score}', score.toString()).replace('{game}', game.title[lang]),
-    url: `http://odesaplay.com.ua?r=${profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}`
+    url: `http://odesaplay.com.ua/${game.id}?r=${profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}`
   };
 
   try {
@@ -101,6 +101,7 @@ export function calculatePlayerStats(
   const recruits = recruitCount ?? Object.values(allProfiles).filter((p: any) => p.referredBy === userId).length;
   const marshrutkaHighScore = userRecords.filter(l => l.gameId === 'marshrutka').reduce((max, l) => Math.max(max, l.score || 0), 0);
   const droneHighScore = userRecords.filter(l => l.gameId === 'drones').reduce((max, l) => Math.max(max, l.score || 0), 0);
+  const lighthouseHighScore = userRecords.filter(l => l.gameId === 'lighthouse').reduce((max, l) => Math.max(max, l.score || 0), 0);
 
   const triviaRecords = userRecords.filter(l => l.gameId === 'trivia');
   let triviaPercent = 0;
@@ -128,7 +129,7 @@ export function calculatePlayerStats(
     }
   }
 
-  return { totalGamesPlayed, hasTop3, checkins, recruits, marshrutkaHighScore, droneHighScore, triviaPercent, streak, allVenuesUnlocked, beatHighScoreBy50, highScoreGames };
+  return { totalGamesPlayed, hasTop3, checkins, recruits, marshrutkaHighScore, droneHighScore, triviaPercent, lighthouseHighScore, streak, allVenuesUnlocked, beatHighScoreBy50, highScoreGames };
 }
 
 export async function checkAndUnlockBadges(

@@ -1,19 +1,31 @@
+import { getAudioContext } from '../../../utils/audioContext';
+
 export class AudioEngine {
     ctx: AudioContext | null = null;
     ambienceGain: GainNode | null = null;
     ambienceFilter: BiquadFilterNode | null = null;
+    sfxEnabled: boolean = true;
     
-    init() {
-        if (!this.ctx) {
-            this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    setSfxEnabled(enabled: boolean) {
+        this.sfxEnabled = enabled;
+    }
+    
+    ensureReady() {
+        if (!this.ctx || this.ctx.state === 'closed') {
+            this.ctx = getAudioContext();
         }
         if (this.ctx.state === 'suspended') {
             this.ctx.resume();
         }
+    }
+    
+    init() {
+        this.ensureReady();
         this.startAmbience();
     }
 
     setWeather(weather: 'clear' | 'fog' | 'storm') {
+        this.ensureReady();
         if (!this.ctx || !this.ambienceFilter || !this.ambienceGain) return;
         
         this.ambienceFilter.frequency.cancelScheduledValues(this.ctx.currentTime);
@@ -68,7 +80,8 @@ export class AudioEngine {
     }
 
     playPump() {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         
         const now = this.ctx.currentTime;
         
@@ -118,7 +131,8 @@ export class AudioEngine {
     }
 
     playDock(lesser = false) {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         // Ship horn chime
         const osc1 = this.ctx.createOscillator();
         const osc2 = this.ctx.createOscillator();
@@ -150,7 +164,8 @@ export class AudioEngine {
     }
 
     playLightToggle(on: boolean) {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         // Heavy switch click
         const bufferSize = this.ctx.sampleRate * 0.05;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -174,7 +189,8 @@ export class AudioEngine {
     }
 
     playRadioBlip() {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         // Static crackle
         const bufferSize = this.ctx.sampleRate * 0.1;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -200,7 +216,8 @@ export class AudioEngine {
     }
 
     playFoghorn() {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
@@ -226,7 +243,8 @@ export class AudioEngine {
     }
 
     playError() {
-      if (!this.ctx) return;
+      this.ensureReady();
+      if (!this.ctx || !this.sfxEnabled) return;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sawtooth';
@@ -243,7 +261,8 @@ export class AudioEngine {
     }
 
     playSpark() {
-      if (!this.ctx) return;
+      this.ensureReady();
+      if (!this.ctx || !this.sfxEnabled) return;
       const bufferSize = this.ctx.sampleRate * 0.1;
       const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const data = buffer.getChannelData(0);
@@ -266,7 +285,8 @@ export class AudioEngine {
     }
 
     playThunder() {
-        if (!this.ctx) return;
+        this.ensureReady();
+        if (!this.ctx || !this.sfxEnabled) return;
         const bufferSize = this.ctx.sampleRate * 2.0;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);

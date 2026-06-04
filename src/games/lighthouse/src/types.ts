@@ -1,10 +1,5 @@
 // Game Constants and TypeScript shapes
 
-declare module '*.png' {
-  const value: string;
-  export default value;
-}
-
 export type AppScreen = 'start' | 'playing' | 'upgrade' | 'gameover';
 
 export interface Upgrades {

@@ -1,5 +1,13 @@
 [
   {
+    "id": "lighthouse",
+    "cat": "arcade",
+    "title": { "en": "Vorontsov Lighthouse Keeper", "uk": "Маяк Воронцова" },
+    "url": "./games/lighthouse/",
+    "icon": "/images/lighthouse.png",
+    "orientation": "portrait"
+  },
+  {
     "id": "drones",
     "cat": "arcade",
     "title": { "en": "Russian Drones", "uk": "Російські Дрони" },

@@ -9,12 +9,13 @@ interface GameScreenProps {
   onDayEnd: (earnings: number, shiftDocked: number) => void;
   globalScore: number;
   totalDockedShips: number;
+  t?: any;
 }
 
 const TICK_RATE = 50; // ms per tick
 const DAY_DURATION = 120_000; // 2 minutes
 
-export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips }: GameScreenProps) {
+export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, t }: GameScreenProps) {
   // --- Game State (updated heavily during loop) ---
   const [timeRemaining, setTimeRemaining] = useState(DAY_DURATION);
   const [ships, setShips] = useState<Ship[]>([{
@@ -401,6 +402,7 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips }
         upgrades={upgrades}
         shipsApproaching={ships.some(s => s.status === 'approaching' && s.distance < 85)}
         timeRemaining={timeRemaining}
+        t={t}
       />
     </div>
   );

@@ -26,6 +26,12 @@ export default function App() {
             <Route path="/play" element={<Play />} />
             <Route path="/manager" element={<ManagerHub />} />
 
+            <Route path="/drones" element={<GameHub initialView="home" />} />
+            <Route path="/shooter" element={<GameHub initialView="home" />} />
+            <Route path="/marshrutka" element={<GameHub initialView="home" />} />
+            <Route path="/trivia" element={<GameHub initialView="home" />} />
+            <Route path="/lighthouse" element={<GameHub initialView="home" />} />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

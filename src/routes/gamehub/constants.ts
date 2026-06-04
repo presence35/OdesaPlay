@@ -9,6 +9,7 @@ export const BADGE_DEFINITIONS = [
   { id: 'recruiter', icon: '📣', condition: (s: PlayerStats) => s.recruits >= 3 },
   { id: 'marshrutkaRider', icon: '🚐', condition: (s: PlayerStats) => s.marshrutkaHighScore >= 50 },
   { id: 'droneSpotter', icon: '/images/drone.png', condition: (s: PlayerStats) => s.droneHighScore >= 50 },
+  { id: 'lighthouseKeeper', icon: '/images/lighthouse.png', condition: (s: PlayerStats) => s.lighthouseHighScore >= 100 },
   { id: 'triviaMaster', icon: '📚', condition: (s: PlayerStats) => s.triviaPercent >= 80 },
   { id: 'streakMaster', icon: '🔥', condition: (s: PlayerStats) => s.streak >= 7 },
   { id: 'odesaNative', icon: '🏙️', condition: (s: PlayerStats) => s.allVenuesUnlocked },

@@ -6,6 +6,7 @@ const ShooterApp = lazy(() => import('../../games/shooter/App'));
 const DronesApp = lazy(() => import('../../games/drones/App'));
 const MarshrutkaApp = lazy(() => import('../../games/marshrutka/App'));
 const TriviaApp = lazy(() => import('../../games/trivia/TriviaApp'));
+const LighthouseApp = lazy(() => import('../../games/lighthouse/src/App'));
 
 export function renderGameComponent(
   activeGame: Game | null,
@@ -85,6 +86,7 @@ export function renderGameComponent(
         {activeGame.id === 'drones' && <DronesApp />}
         {activeGame.id === 'marshrutka' && <MarshrutkaApp />}
         {activeGame.id === 'trivia' && <TriviaApp />}
+        {activeGame.id === 'lighthouse' && <LighthouseApp />}
       </Suspense>
     </div>
   );

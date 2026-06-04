@@ -9,7 +9,7 @@ import {
   Zap, X, Lock, Gamepad2, Globe, Map as MapIcon, User, Pencil,
   Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
    Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users,
-  Sun, Moon, Palette
+   Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -31,6 +31,7 @@ const TreasureHuntMap = lazy(() => import('../components/TreasureHuntMap'));
 const AdminPanel = lazy(() => import('../views/AdminPanel'));
 const SalesTool = lazy(() => import('../views/SalesTool'));
 import LoadingSpinner from '../components/LoadingSpinner';
+import ThemeToggle from '../components/ThemeToggle';
 import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
 import { handleFirestoreError, transliterate, shareScore, getTier, triggerHaptic, calculatePlayerStats, getLevel, getXpForCurrentLevel, getXpForNextLevel, getXpProgress, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
@@ -62,7 +63,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
-  const { family, mode, setFamily, toggleMode } = useTheme();
+  const { family, setFamily } = useTheme();
   const showSetup = true;
   const pickLang = (l: Language) => { setLang(l); };
   const pickTheme = (f: 'odesa' | 'ukraine') => { setFamily(f); };
@@ -282,8 +283,15 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     const params = new URLSearchParams(window.location.search);
     if (params.get('v')) setVenueId(params.get('v')!);
     if (params.get('r')) sessionStorage.setItem('odesa_referral', params.get('r')!);
-    if (params.get('game') && ['drones','shooter','marshrutka','trivia'].includes(params.get('game')!)) {
-      const gameId = params.get('game')!;
+
+    const gameFromParam = params.get('game');
+    const gameFromPath = location.pathname.replace(/^\//, '');
+    const validGameIds = ['drones','shooter','marshrutka','trivia','lighthouse'];
+    const gameId = (gameFromParam && validGameIds.includes(gameFromParam))
+      ? gameFromParam
+      : (validGameIds.includes(gameFromPath) ? gameFromPath : null);
+
+    if (gameId) {
       fetch('./games.json?t=' + Date.now())
         .then(r => r.json())
         .then((d: Game[]) => {
@@ -1065,16 +1073,28 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                   <h4 className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{t.themeLanguage}</h4>
                   <div className="flex items-center justify-center gap-6">
                     <button onClick={() => pickLang('uk')} className="flex flex-col items-center gap-1.5 group">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-[var(--btn-primary-bg)]/20 to-[var(--accent-bg)]/20 border-2 border-[var(--accent-bg)]/40 flex items-center justify-center text-3xl shadow-lg group-hover:border-[var(--accent-bg)] transition-colors">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                        lang === 'uk'
+                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
+                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                      }`}>
                         🇺🇦
                       </div>
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{t.themeUkr}</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        lang === 'uk' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
+                      }`}>{t.langUkrainian}</span>
                     </button>
                     <button onClick={() => pickLang('en')} className="flex flex-col items-center gap-1.5 group">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400/40 flex items-center justify-center text-3xl shadow-lg group-hover:border-blue-400 transition-colors">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
+                        lang === 'en'
+                          ? 'bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400 shadow-lg shadow-blue-500/10 scale-110'
+                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+                      }`}>
                         🇺🇸
                       </div>
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{t.themeEng}</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        lang === 'en' ? 'text-blue-400' : 'text-[var(--text-muted)]'
+                      }`}>{t.langEnglish}</span>
                     </button>
                   </div>
                 </div>
@@ -1107,29 +1127,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                       }`}>{t.themeUkraine}</span>
                     </button>
                   </div>
-                  <div className="flex items-center justify-center gap-2 pt-1">
-                    <button
-                      onClick={() => { if (mode !== 'dark') toggleMode(); pickTheme(family); }}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                        mode === 'dark'
-                          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
-                          : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                      }`}
-                    >
-                      <Moon className="w-3.5 h-3.5" /> {t.themeDark}
-                    </button>
-                    <span className="text-[var(--text-subtle)] text-[10px] font-bold">/</span>
-                    <button
-                      onClick={() => { if (mode !== 'light') toggleMode(); pickTheme(family); }}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                        mode === 'light'
-                          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
-                          : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                      }`}
-                    >
-                      <Sun className="w-3.5 h-3.5" /> {t.themeLight}
-                    </button>
-                  </div>
+                  <ThemeToggle darkLabel={t.themeDark} lightLabel={t.themeLight} />
                 </div>
                 <p className="text-[9px] text-[var(--text-subtle)] text-center font-bold tracking-wide">
                   {t.themeProfileNote}
@@ -1883,29 +1881,7 @@ onClick={() => {
                         </span>
                       </button>
                     </div>
-                    <div className="flex items-center justify-center gap-2 pt-2 border-t border-[var(--border-default)]">
-                      <button
-                        onClick={() => toggleMode()}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                          mode === 'dark'
-                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
-                            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                        }`}
-                      >
-                        <Moon className="w-4 h-4" /> {t.themeDark}
-                      </button>
-                      <span className="text-[var(--text-subtle)] text-xs font-bold">|</span>
-                      <button
-                        onClick={() => toggleMode()}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                          mode === 'light'
-                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-lg'
-                            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                        }`}
-                      >
-                        <Sun className="w-4 h-4" /> {t.themeLight}
-                      </button>
-                    </div>
+                    <ThemeToggle darkLabel={t.themeDark} lightLabel={t.themeLight} />
                   </div>
                 </div>
               </div>

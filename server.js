@@ -64,7 +64,7 @@ async function checkOdesaAlerts() {
         'odesa_alerts',
         '🚨 Air Raid — Odesa',
         'Sirens active! Defend the sky in Russian Drones.',
-        '/?game=drones&alert=1'
+        '/drones?alert=1'
       );
     } else if (!hasAirAlert && odesaAlertActive) {
       odesaAlertActive = false;
@@ -118,7 +118,7 @@ async function checkNewTournaments() {
         'tournament_launches',
         `🏆 New Tournament at ${data.venueName}!`,
         `Prize: ${data.prize} — Play now!`,
-        `/?game=${data.gameId || 'drones'}`
+        `/${data.gameId || 'drones'}`
       );
     });
   } catch (e) {

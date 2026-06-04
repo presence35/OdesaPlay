@@ -58,6 +58,7 @@ export interface PlayerStats {
   marshrutkaHighScore: number;
   droneHighScore: number;
   triviaPercent: number;
+  lighthouseHighScore: number;
   streak: number;
   allVenuesUnlocked: boolean;
   beatHighScoreBy50: boolean;

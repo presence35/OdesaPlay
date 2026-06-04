@@ -14,9 +14,10 @@ interface ControlPanelProps {
   upgrades: Upgrades;
   shipsApproaching: boolean;
   timeRemaining: number;
+  t?: any;
 }
 
-export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth, isCooledDown, score, upgrades, shipsApproaching, timeRemaining }: ControlPanelProps) {
+export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth, isCooledDown, score, upgrades, shipsApproaching, timeRemaining, t }: ControlPanelProps) {
   // Sync internal UI state for the radio dial
   const [internalFreq, setInternalFreq] = React.useState(100.0);
   const lastY = useRef<number | null>(null);
@@ -101,7 +102,7 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="text-[10px] text-slate-400 uppercase tracking-widest text-right">Odesa Radio<br/>Cmd System</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-widest text-right">{t?.radioCmd || 'Odesa Radio Cmd System'}</div>
           <Radio className={`w-5 h-5 ${shipsApproaching ? 'text-green-500 animate-pulse' : 'text-slate-500'}`} />
         </div>
       </div>
@@ -133,7 +134,7 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
           onPointerDown={attemptDock}
           className="bg-white text-slate-900 px-4 py-3 rounded-lg font-bold uppercase active:scale-[0.93] active:bg-slate-300 transition-all duration-75 shadow-[0_4px_0_#94a3b8] active:shadow-[0_0px_0_#94a3b8] active:translate-y-1 flex items-center gap-1 text-sm tracking-wider outline-none touch-manipulation"
         >
-          <Check className="w-4 h-4" /> Dock
+          <Check className="w-4 h-4" /> {t?.dock || 'Dock'}
         </button>
       </div>
 
@@ -205,10 +206,10 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
       {fuseBlown && (
         <div className="absolute inset-0 bg-[#0A1128]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center border-t-2 border-red-500 rounded-t-lg transition-all">
           <div className="font-display font-bold text-3xl uppercase tracking-widest text-white leading-tight text-center mb-2 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]">
-            System Failure
+            {t?.systemFailure || 'System Failure'}
           </div>
           <div className="text-red-400 font-mono text-lg mb-8 animate-pulse">
-            Tap {Math.ceil(fuseHealth)}x to repair
+            {t?.tapToRepair || 'Tap to repair'} {Math.ceil(fuseHealth)}x
           </div>
           <button
             onPointerDown={attemptFixFuse}
