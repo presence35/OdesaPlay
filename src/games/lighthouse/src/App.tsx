@@ -4,16 +4,17 @@
  */
 import React, { useState } from 'react';
 import { AppScreen, Upgrades } from './types';
-import { StartScreen, UpgradeScreen } from './Screens';
+import { StartScreen, UpgradeScreen, GameOverScreen } from './Screens';
 import { GameScreen } from './components/GameScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('start');
   
   // Metagame State
-  const [money, setMoney] = useState(0);
+  const [score, setScore] = useState(0);
   const [dayCount, setDayCount] = useState(1);
   const [lastEarnings, setLastEarnings] = useState(0);
+  const [totalDockedShips, setTotalDockedShips] = useState(0);
 
   const [upgrades, setUpgrades] = useState<Upgrades>({
     autoFoghorn: false,
@@ -21,15 +22,22 @@ export default function App() {
     solarBackup: false,
   });
 
-  const handleDayEnd = (earnings: number) => {
+  const handleDayEnd = (earnings: number, shiftDocked: number) => {
     setLastEarnings(earnings);
-    setMoney(prev => prev + earnings);
-    setCurrentScreen('upgrade');
+    setTotalDockedShips(prev => prev + shiftDocked);
+    setScore(prev => prev + earnings);
+    
+    // Check if points go below 0 after having docked 3 or more ships
+    if (score + earnings < 0 && (totalDockedShips + shiftDocked) >= 3) {
+      setCurrentScreen('gameover');
+    } else {
+      setCurrentScreen('upgrade');
+    }
   };
 
   const handleBuy = (key: keyof Upgrades, cost: number) => {
-    if (money >= cost && !upgrades[key]) {
-      setMoney(prev => prev - cost);
+    if (score >= cost && !upgrades[key]) {
+      setScore(prev => prev - cost);
       setUpgrades(prev => ({ ...prev, [key]: true }));
     }
   };
@@ -51,18 +59,28 @@ export default function App() {
         {currentScreen === 'playing' && (
           <GameScreen 
             upgrades={upgrades}
-            onDayEnd={handleDayEnd} 
+            onDayEnd={handleDayEnd}
+            globalScore={score}
+            totalDockedShips={totalDockedShips}
           />
         )}
 
         {currentScreen === 'upgrade' && (
           <UpgradeScreen 
-            money={money}
+            score={score}
             upgrades={upgrades}
             dayCount={dayCount}
             lastEarnings={lastEarnings}
             onBuy={handleBuy}
             onNextDay={handleNextDay}
+          />
+        )}
+
+        {currentScreen === 'gameover' && (
+          <GameOverScreen 
+            score={score}
+            totalDockedShips={totalDockedShips}
+            dayCount={dayCount}
           />
         )}
         

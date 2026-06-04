@@ -6,42 +6,43 @@ import { translations, type Language } from '../language';
 const BETA_BANNER_KEY = 'odesa_beta_banner_dismissed';
 
 export default function BetaBanner() {
-  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(true);
+  const [gamePlaying, setGamePlaying] = useState(false);
   const [lang, setLang] = useState<Language>('uk');
 
   useEffect(() => {
     setLang((localStorage.getItem('odesa_lang') as Language) || 'uk');
+    setDismissed(localStorage.getItem(BETA_BANNER_KEY) === 'true');
   }, []);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem(BETA_BANNER_KEY);
-    if (!dismissed) {
-      setVisible(true);
-    }
+    const handler = (e: Event) => setGamePlaying((e as CustomEvent).detail.playing);
+    window.addEventListener('odesa:game', handler);
+    return () => window.removeEventListener('odesa:game', handler);
   }, []);
 
   const dismiss = () => {
     localStorage.setItem(BETA_BANNER_KEY, 'true');
-    setVisible(false);
+    setDismissed(true);
   };
 
   const t = translations[lang];
 
   return (
     <AnimatePresence>
-      {visible && (
+      {!dismissed && !gamePlaying && (
         <motion.div
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed top-0 left-0 right-0 z-[300] bg-[var(--accent-bg)] text-[var(--text-on-accent)]"
+          className="fixed top-0 left-0 right-0 z-[300] bg-[var(--accent-bg)]"
         >
-          <div className="flex items-center justify-between px-4 h-9 text-sm font-bold uppercase tracking-wider">
+          <div className="flex items-center justify-between px-4 h-9 text-sm font-bold uppercase tracking-wider text-[#0057b8]">
             <span>{t.betaBanner}</span>
             <button
               onClick={dismiss}
-              className="opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+              className="opacity-60 hover:opacity-100 transition-opacity cursor-pointer text-red-500"
               aria-label="Dismiss"
             >
               <X size={14} />

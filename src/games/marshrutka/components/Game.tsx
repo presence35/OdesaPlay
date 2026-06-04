@@ -311,24 +311,47 @@ const PotholeVisual = React.memo(({ variant = 0 }: { variant?: number }) => {
   if (variant === 1) {
     return (
       <svg width="60" height="40" viewBox="0 0 60 40">
-        <ellipse cx="28" cy="20" rx="25" ry="15" fill="#334155" />
-        <ellipse cx="28" cy="20" rx="22" ry="13" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
+        <path d="M5 18 L10 6 L24 5 L38 7 L50 10 L53 20 L48 32 L36 36 L20 34 L8 28 Z" fill="#334155" />
+        <path d="M7 18 L12 8 L25 7 L37 9 L48 12 L51 20 L46 30 L35 34 L20 32 L10 26 Z" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
+        <path d="M5 18 L2 13 M53 20 L56 26 M48 32 L52 36 M8 28 L4 30" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
         <ellipse cx="20" cy="16" rx="6" ry="4" fill="#0f172a" />
-        <ellipse cx="35" cy="22" rx="5" ry="3" fill="#0f172a" />
+        <ellipse cx="36" cy="22" rx="5" ry="3" fill="#0f172a" />
         <circle cx="15" cy="24" r="2" fill="#1e293b" />
         <circle cx="28" cy="18" r="3" fill="#0f172a" />
-        <path d="M10 10 L15 18 M48 8 L42 15" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
   if (variant === 2) {
     return (
       <svg width="40" height="36" viewBox="0 0 40 36">
-        <ellipse cx="20" cy="18" rx="16" ry="12" fill="#334155" />
-        <ellipse cx="20" cy="18" rx="14" ry="10" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
-        <ellipse cx="14" cy="14" rx="4" ry="3" fill="#0f172a" />
-        <ellipse cx="26" cy="20" rx="5" ry="3" fill="#0f172a" />
-        <path d="M8 28 L12 22 M32 26 L28 20" stroke="#475569" strokeWidth="1" strokeLinecap="round" />
+        <path d="M5 18 L12 6 L22 5 L34 9 L37 18 L32 30 L20 32 L8 26 Z" fill="#334155" />
+        <path d="M7 18 L13 8 L22 7 L32 10 L35 18 L30 28 L20 30 L10 24 Z" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
+        <path d="M5 18 L2 14 M37 18 L40 22 M32 30 L36 33 M8 26 L4 27" stroke="#475569" strokeWidth="1" strokeLinecap="round" />
+        <ellipse cx="16" cy="14" rx="4" ry="3" fill="#0f172a" />
+        <ellipse cx="28" cy="20" rx="4" ry="3" fill="#0f172a" />
+      </svg>
+    );
+  }
+  if (variant === 3) {
+    return (
+      <svg width="48" height="36" viewBox="0 0 48 36">
+        <path d="M6 14 L10 5 L20 3 L32 7 L42 5 L44 14 L40 25 L34 31 L22 32 L14 28 L5 22 Z" fill="#334155" />
+        <path d="M9 15 L13 8 L22 6 L32 10 L40 8 L42 15 L38 23 L33 29 L23 30 L15 26 L8 21 Z" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
+        <path d="M5 22 L2 27 M42 15 L46 10 M34 31 L38 35 M14 28 L10 33 M22 32 L22 36" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
+        <ellipse cx="22" cy="16" rx="5" ry="3" fill="#0f172a" opacity="0.8" />
+        <circle cx="32" cy="20" r="2" fill="#0f172a" />
+      </svg>
+    );
+  }
+  if (variant === 5) {
+    return (
+      <svg width="48" height="32" viewBox="0 0 48 32">
+        <path d="M5 15 L8 6 L20 4 L32 6 L42 8 L43 16 L39 26 L28 28 L16 27 L6 22 Z" fill="#334155" />
+        <path d="M7 15 L10 8 L21 6 L31 7 L40 9 L41 16 L37 24 L27 26 L17 25 L8 20 Z" fill="#0f172a" stroke="#0f172a" strokeWidth="1" />
+        <path d="M5 15 L2 11 M43 16 L46 20 M39 26 L43 29 M6 22 L3 23" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
+        <ellipse cx="20" cy="14" rx="6" ry="4" fill="#0f172a" opacity="0.8" />
+        <circle cx="32" cy="18" r="3" fill="#0f172a" opacity="0.8" />
+        <circle cx="10" cy="18" r="1.5" fill="#475569" />
       </svg>
     );
   }
@@ -1176,10 +1199,10 @@ export default function Game() {
     if (lastTimeRef.current === 0) {
       lastTimeRef.current = time;
       spawnTimers.current.pothole = time;
-      spawnTimers.current.babushka = time;
-      spawnTimers.current.bike = time;
-      spawnTimers.current.passenger = time;
-      spawnTimers.current.scenery = time;
+      spawnTimers.current.babushka = time - (difficulty === 'fast' ? 1800 : 2500) + 200;
+      spawnTimers.current.bike = time - (difficulty === 'fast' ? 6000 : 8000) + 200;
+      spawnTimers.current.passenger = time - (difficulty === 'fast' ? 2200 : 3500) + 200;
+      spawnTimers.current.scenery = time - 1000 + 200;
     }
     const deltaTime = Math.min(time - lastTimeRef.current, 100);
     lastTimeRef.current = time;
@@ -1495,13 +1518,13 @@ export default function Game() {
     }
 
     if (time - spawnTimers.current.pothole > (difficulty === 'fast' ? 1000 : 1500)) {
-      if (Math.random() < 0.9) {
+      if (Math.random() < 0.9 && objectIdRef.current >= 5) {
         next.push({
           id: objectIdRef.current++,
           type: 'pothole',
           x: (Math.random() - 0.5) * laneLimit * 1.5,
           y: -100,
-          variant: Math.floor(Math.random() * 3)
+          variant: Math.random() < 0.1 ? 0 : [1, 2, 3, 5][Math.floor(Math.random() * 4)]
         });
       }
       spawnTimers.current.pothole = time;
@@ -1564,7 +1587,7 @@ export default function Game() {
     if (scoreRef.current > maxScoreRef.current) {
       maxScoreRef.current = scoreRef.current;
     }
-    if (scoreRef.current < 0 || (scoreRef.current === 0 && maxScoreRef.current > 0)) {
+    if (scoreRef.current <= 0 && maxScoreRef.current > 0) {
       setGameState('gameover');
       playSound('gameover');
       if (window.Odesa) {
@@ -1732,6 +1755,8 @@ export default function Game() {
           <div data-key="pothole-0"><PotholeVisual variant={0} /></div>
           <div data-key="pothole-1"><PotholeVisual variant={1} /></div>
           <div data-key="pothole-2"><PotholeVisual variant={2} /></div>
+          <div data-key="pothole-3"><PotholeVisual variant={3} /></div>
+          <div data-key="pothole-5"><PotholeVisual variant={5} /></div>
           <div data-key="delivery-bike"><DeliveryBikeVisual /></div>
         </div>
       </div>
@@ -1810,7 +1835,7 @@ export default function Game() {
                     <div className="w-full h-px bg-white/10" />
                     <div className="flex flex-row items-center justify-center gap-2 h-[40px]">
                       <span className="text-red-400 font-black text-sm leading-none">-3</span>
-                      <div className="flex items-center justify-center"><div className="scale-75"><PotholeVisual /></div></div>
+                      <div className="flex items-center justify-center"><div className="scale-75"><PotholeVisual variant={3} /></div></div>
                     </div>
                   </div>
                   <div className="flex flex-col gap-4">

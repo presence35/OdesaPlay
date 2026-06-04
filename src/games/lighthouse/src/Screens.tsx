@@ -1,6 +1,8 @@
 import React from 'react';
 import { Upgrades } from './types';
 import { ShieldAlert, Sun, BatteryCharging } from 'lucide-react';
+import { audio } from './audio';
+import lighthouseImg from './assets/lighthouse.png';
 
 interface StartScreenProps {
   onStart: () => void;
@@ -8,26 +10,39 @@ interface StartScreenProps {
 
 export function StartScreen({ onStart }: StartScreenProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center z-10 relative bg-[#0A1128]">
+    <div className="flex-1 flex flex-col items-center justify-between pt-12 pb-8 p-6 text-center z-10 relative bg-[#0A1128] overflow-hidden">
+      {/* Background Image */}
+      <div 
+         className="absolute bottom-0 w-full h-1/2 z-0 opacity-70 bg-center bg-no-repeat bg-contain mix-blend-screen pointer-events-none" 
+         style={{ backgroundImage: `url(${lighthouseImg})` }} 
+      />
+
       {/* Visual Accent */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-48 h-48 bg-yellow-100/10 rounded-full blur-3xl pointer-events-none" />
       
-      <h1 className="font-display tracking-tight text-5xl font-bold text-white mb-2 uppercase drop-shadow-[0_0_15px_rgba(248,250,252,0.3)]">
-        Vorontsov<br/>Keeper
-      </h1>
-      <p className="text-slate-400 mb-8 text-sm uppercase tracking-widest">
-        Odesa Port Authority
-      </p>
+      {/* Title Box - at the very top */}
+      <div className="relative z-10 w-full mb-8">
+        <h1 className="font-display tracking-tight text-5xl font-bold uppercase drop-shadow-[0_0_15px_rgba(248,250,252,0.3)]">
+          <span className="text-[#0057B7]">Vorontsov</span><br/>
+          <span className="text-[#FFD700]">Keeper</span>
+        </h1>
+        <p className="text-slate-400 mt-4 text-sm uppercase tracking-widest">
+          Odesa Port Authority
+        </p>
+      </div>
 
-      <div className="space-y-4 mb-12 text-sm text-slate-300 bg-slate-900/50 p-6 rounded-xl border border-slate-800 text-left w-full">
-        <p className="flex items-center gap-3"><span className="text-yellow-400 font-bold">1.</span> TAP & HOLD light to guide ships.</p>
-        <p className="flex items-center gap-3"><span className="text-yellow-400 font-bold">2.</span> SWIPE radio to match frequencies.</p>
-        <p className="flex items-center gap-3"><span className="text-yellow-400 font-bold">3.</span> SWIPE up/down to pump generator.</p>
+      <div className="space-y-2 mb-auto text-sm text-slate-300 bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center w-full relative z-10 backdrop-blur-sm">
+        <p><span className="text-[#FFD700] font-bold">SWIPE</span> radio to match ship frequency</p>
+        <p><span className="text-[#FFD700] font-bold">TAP</span> light to guide ships</p>
+        <p><span className="text-[#FFD700] font-bold">SWIPE</span> to pump generator</p>
       </div>
 
       <button
-        onClick={onStart}
-        className="px-8 py-4 bg-white text-[#0A1128] font-display font-bold uppercase tracking-widest rounded-full shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-95 transition-transform"
+        onClick={() => {
+          audio.init();
+          onStart();
+        }}
+        className="mt-6 mb-8 px-8 py-4 bg-white text-[#0A1128] font-display font-bold uppercase tracking-widest rounded-full shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-95 transition-transform relative z-10"
       >
         Begin Night Shift
       </button>
@@ -36,7 +51,7 @@ export function StartScreen({ onStart }: StartScreenProps) {
 }
 
 interface UpgradeScreenProps {
-  money: number;
+  score: number;
   upgrades: Upgrades;
   onBuy: (key: keyof Upgrades, cost: number) => void;
   onNextDay: () => void;
@@ -44,7 +59,45 @@ interface UpgradeScreenProps {
   lastEarnings: number;
 }
 
-export function UpgradeScreen({ money, upgrades, onBuy, onNextDay, dayCount, lastEarnings }: UpgradeScreenProps) {
+export function GameOverScreen({ score, totalDockedShips, dayCount }: { score: number, totalDockedShips: number, dayCount: number }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center z-10 relative bg-[#0A1128]">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-48 h-48 bg-red-900/20 rounded-full blur-3xl pointer-events-none" />
+      
+      <h1 className="font-display tracking-tight text-5xl font-bold text-red-500 mb-2 uppercase drop-shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+        You're Fired
+      </h1>
+      <p className="text-slate-400 mb-8 text-sm uppercase tracking-widest leading-relaxed">
+        Too many accidents under your watch.<br/>
+        The Port Authority has relieved you of duty.
+      </p>
+
+      <div className="space-y-4 mb-12 text-sm text-slate-300 bg-slate-900/50 p-6 rounded-xl border border-slate-800 text-left w-full max-w-sm mx-auto">
+        <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+          <span className="text-slate-500 uppercase font-bold text-xs">Days Survived</span>
+          <span className="font-mono text-white text-lg">{dayCount}</span>
+        </div>
+        <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+          <span className="text-slate-500 uppercase font-bold text-xs">Ships Docked</span>
+          <span className="font-mono text-green-400 text-lg">{totalDockedShips}</span>
+        </div>
+        <div className="flex justify-between items-center pt-2">
+          <span className="text-slate-500 uppercase font-bold text-xs">Final Debt</span>
+          <span className="font-mono text-red-500 text-lg">{score}</span>
+        </div>
+      </div>
+
+      <button
+        onClick={() => window.location.reload()}
+        className="px-8 py-4 bg-red-600 text-white font-display font-bold uppercase tracking-widest rounded-full shadow-[0_0_30px_rgba(220,38,38,0.4)] active:scale-95 transition-transform"
+      >
+        Start Over
+      </button>
+    </div>
+  );
+}
+
+export function UpgradeScreen({ score, upgrades, onBuy, onNextDay, dayCount, lastEarnings }: UpgradeScreenProps) {
   const shopItems: { key: keyof Upgrades; name: string; desc: string; cost: number; icon: React.ReactNode }[] = [
     {
       key: 'autoFoghorn',
@@ -74,20 +127,24 @@ export function UpgradeScreen({ money, upgrades, onBuy, onNextDay, dayCount, las
       <div className="mt-8 text-center mb-8">
         <h2 className="font-display text-2xl font-bold text-white uppercase tracking-wider">Shift Complete</h2>
         <p className="text-slate-400">Day {dayCount}</p>
-        <div className="mt-4 inline-block bg-green-900/40 text-green-400 px-6 py-2 rounded-full border border-green-800/50 font-mono text-xl">
-          +{lastEarnings} ₴
+        <div className={`mt-4 inline-block px-6 py-2 rounded-full border font-mono text-xl ${
+          lastEarnings >= 0 
+            ? 'bg-green-900/40 text-green-400 border-green-800/50' 
+            : 'bg-red-900/40 text-red-400 border-red-800/50'
+        }`}>
+          {lastEarnings > 0 ? '+' : ''}{lastEarnings}
         </div>
       </div>
 
       <div className="flex justify-between items-end mb-4 px-2 border-b border-slate-800 pb-4">
-        <span className="text-slate-400 uppercase text-xs font-bold tracking-widest">Available Funds</span>
-        <span className="text-3xl text-white font-mono font-bold">{money} ₴</span>
+        <span className="text-slate-400 uppercase text-xs font-bold tracking-widest">Available Points</span>
+        <span className="text-3xl text-white font-mono font-bold">{score}</span>
       </div>
 
       <div className="flex-1 space-y-4">
         {shopItems.map(item => {
           const owned = upgrades[item.key];
-          const canAfford = money >= item.cost;
+          const canAfford = score >= item.cost;
           return (
             <div key={item.key} className={`p-4 rounded-xl border flex items-center gap-4 ${owned ? 'bg-slate-800/30 border-yellow-900/30 opacity-70' : 'bg-slate-900 border-slate-800'}`}>
               <div className="p-3 bg-slate-950 rounded-lg">{item.icon}</div>
@@ -96,7 +153,7 @@ export function UpgradeScreen({ money, upgrades, onBuy, onNextDay, dayCount, las
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">{item.desc}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                {!owned && <span className="font-mono text-xs font-bold text-slate-300">{item.cost} ₴</span>}
+                {!owned && <span className="font-mono text-xs font-bold text-slate-300">{item.cost}</span>}
                 <button
                   disabled={owned || !canAfford}
                   onClick={() => onBuy(item.key, item.cost)}
@@ -106,7 +163,7 @@ export function UpgradeScreen({ money, upgrades, onBuy, onNextDay, dayCount, las
                     : 'bg-slate-800 text-slate-600'}
                   `}
                 >
-                  {owned ? 'Owned' : 'Buy'}
+                  {owned ? 'Owned' : 'Get'}
                 </button>
               </div>
             </div>

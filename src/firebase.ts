@@ -27,6 +27,19 @@ export const requestFcmToken = async (): Promise<string | null> => {
   }
 };
 
+export async function syncNotificationSubscriptions(token: string, userId: string, subscribe: string[], unsubscribe: string[]) {
+  try {
+    const res = await fetch('/api/update-subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, userId, subscribe, unsubscribe }),
+    });
+    if (!res.ok) console.error('[FCM] subscription sync failed:', await res.text());
+  } catch (e) {
+    console.error('[FCM] subscription sync error:', e);
+  }
+}
+
 export const onForegroundMessage = (cb: (payload: any) => void) => {
   const messaging = getMessaging(app);
   return onMessage(messaging, cb);

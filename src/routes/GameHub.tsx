@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { db, auth, getUserId, ensureAnonymousAuth, requestFcmToken, onForegroundMessage } from '../firebase';
+import { db, auth, getUserId, ensureAnonymousAuth, requestFcmToken, onForegroundMessage, syncNotificationSubscriptions } from '../firebase';
 import { translations, Language } from '../language';
 import { useAudio, TrackKey } from '../utils/audio';
 import { suspendAudioContext, pauseAllSounds, resumeAllSounds } from '../utils/audioContext';
@@ -210,6 +210,10 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       }
     }
   }, [activeGame, autoStartedMusic]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('odesa:game', { detail: { playing: gamePlaying } }));
+  }, [gamePlaying]);
 
   useEffect(() => {
     if (musicEnabled && activeTracks.length > 0) {
@@ -1716,6 +1720,22 @@ onClick={() => {
                                   notifications: newPrefs,
                                   updatedAt: serverTimestamp()
                                 }, { merge: true }).catch(console.error);
+                              }
+                              if (newPrefs.fcmToken && user) {
+                                const TOPIC_MAP: Record<string, string> = {
+                                  droneAlerts: 'odesa_alerts',
+                                  gameReminders: 'game_reminders',
+                                  tournamentLaunches: 'tournament_launches',
+                                };
+                                const topic = TOPIC_MAP[key];
+                                if (topic) {
+                                  syncNotificationSubscriptions(
+                                    newPrefs.fcmToken,
+                                    user.uid,
+                                    newPrefs[key] ? [topic] : [],
+                                    newPrefs[key] ? [] : [topic]
+                                  );
+                                }
                               }
                             }}
                             className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${isRequestingNotif ? 'opacity-50' : ''}`}

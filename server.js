@@ -24,32 +24,21 @@ if (existsSync(SA_PATH)) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+
 // ── Odesa air raid alert poller ────────────────────────────────────────────
 let odesaAlertActive = false;
 let odesaAlertData = { activeAlerts: [], regionEngName: 'Odeska region', lastUpdate: null };
 const ODESA_REGION_ID = 18;
 const SIREN_API = `https://siren.pp.ua/api/v3/alerts/${ODESA_REGION_ID}`;
 
-async function sendPushToAll(title, body, url = '/?game=drones&alert=1') {
+async function sendToTopic(topic, title, body, url = '/') {
   if (!admin) return;
   try {
-    const profilesSnap = await adminDb.collectionGroup('profiles').get();
-    const tokens = [];
-    profilesSnap.forEach(doc => {
-      const n = doc.data().notifications;
-      if (n?.droneAlerts && n?.fcmToken) tokens.push(n.fcmToken);
-    });
-    if (tokens.length === 0) return;
-    const message = { notification: { title, body }, data: { url }, tokens };
-    const response = await admin.messaging().sendEachForMulticast(message);
-    console.log(`[FCM] Sent to ${response.successCount} devices (${response.failureCount} failed)`);
-    if (response.failureCount > 0) {
-      response.responses.forEach((r, i) => {
-        if (!r.success) console.warn(`[FCM] Token ${i} failed:`, r.error?.message);
-      });
-    }
+    await admin.messaging().send({ topic, notification: { title, body }, data: { url } });
+    console.log(`[FCM] Sent to topic "${topic}"`);
   } catch (e) {
-    console.error('[FCM] send error:', e.message);
+    console.error(`[FCM] Topic "${topic}" error:`, e.message);
   }
 }
 
@@ -70,8 +59,9 @@ async function checkOdesaAlerts() {
 
     if (hasAirAlert && !odesaAlertActive) {
       odesaAlertActive = true;
-      console.log('[ALERT] 🚨 Odesa air raid ACTIVE — pushing to players');
-      sendPushToAll(
+      console.log('[ALERT] 🚨 Odesa air raid ACTIVE — pushing to topic');
+      sendToTopic(
+        'odesa_alerts',
         '🚨 Air Raid — Odesa',
         'Sirens active! Defend the sky in Russian Drones.',
         '/?game=drones&alert=1'
@@ -79,7 +69,8 @@ async function checkOdesaAlerts() {
     } else if (!hasAirAlert && odesaAlertActive) {
       odesaAlertActive = false;
       console.log('[ALERT] ✅ Odesa all clear');
-      sendPushToAll(
+      sendToTopic(
+        'odesa_alerts',
         '✅ All Clear — Odesa',
         'The danger has passed. Check the leaderboard!',
         '/'
@@ -92,27 +83,12 @@ async function checkOdesaAlerts() {
 
 // ── Idle re-engagement loop ─────────────────────────────────────────────────
 async function sendIdleReminders() {
-  if (!admin) return;
-  try {
-    const profilesSnap = await adminDb.collectionGroup('profiles').get();
-    const tokens = [];
-    profilesSnap.forEach(doc => {
-      const n = doc.data().notifications;
-      if (n?.gameReminders && n?.fcmToken) {
-        tokens.push(n.fcmToken);
-      }
-    });
-    if (tokens.length === 0) return;
-    const message = {
-      notification: { title: '🕹️ Miss you at OdesaPlay!', body: 'Play a quick game and earn rewards.' },
-      data: { url: '/' },
-      tokens,
-    };
-    const response = await admin.messaging().sendEachForMulticast(message);
-    console.log(`[FCM] Idle reminders sent to ${response.successCount} devices`);
-  } catch (e) {
-    console.error('[FCM] Idle reminder error:', e.message);
-  }
+  await sendToTopic(
+    'game_reminders',
+    '🕹️ Miss you at OdesaPlay!',
+    'Play a quick game and earn rewards.',
+    '/'
+  );
 }
 
 checkOdesaAlerts();
@@ -127,31 +103,6 @@ setTimeout(() => {
 // ── Tournament launch notifier ───────────────────────────────────────────────
 const notifiedTournaments = new Set();
 
-async function sendTournamentLaunchPush(venueName, prize, gameId) {
-  if (!admin) return;
-  try {
-    const profilesSnap = await adminDb.collectionGroup('profiles').get();
-    const tokens = [];
-    profilesSnap.forEach(doc => {
-      const n = doc.data().notifications;
-      if (n?.tournamentLaunches && n?.fcmToken) tokens.push(n.fcmToken);
-    });
-    if (tokens.length === 0) return;
-    const message = {
-      notification: {
-        title: `🏆 New Tournament at ${venueName}!`,
-        body: `Prize: ${prize} — Play now!`
-      },
-      data: { url: `/?game=${gameId || 'drones'}` },
-      tokens,
-    };
-    const response = await admin.messaging().sendEachForMulticast(message);
-    console.log(`[FCM] Tournament launch sent to ${response.successCount} devices`);
-  } catch (e) {
-    console.error('[FCM] Tournament launch error:', e.message);
-  }
-}
-
 async function checkNewTournaments() {
   if (!admin) return;
   try {
@@ -163,7 +114,12 @@ async function checkNewTournaments() {
       if (notifiedTournaments.has(id)) return;
       notifiedTournaments.add(id);
       const data = doc.data();
-      sendTournamentLaunchPush(data.venueName, data.prize, data.gameId);
+      sendToTopic(
+        'tournament_launches',
+        `🏆 New Tournament at ${data.venueName}!`,
+        `Prize: ${data.prize} — Play now!`,
+        `/?game=${data.gameId || 'drones'}`
+      );
     });
   } catch (e) {
     console.error('[TOURNAMENT] Poll error:', e.message);
@@ -178,6 +134,39 @@ app.use(express.static(distPath));
 
 app.get('/api/alert-status', (_req, res) => {
   res.json({ active: odesaAlertActive, ...odesaAlertData });
+});
+
+app.post('/api/update-subscriptions', async (req, res) => {
+  if (!admin) return res.status(503).json({ error: 'FCM not configured' });
+  const { token, userId, subscribe = [], unsubscribe = [] } = req.body;
+  if (!token || !userId) return res.status(400).json({ error: 'token and userId required' });
+  try {
+    if (subscribe.length) {
+      await admin.messaging().subscribeToTopic(token, subscribe);
+    }
+    if (unsubscribe.length) {
+      await admin.messaging().unsubscribeFromTopic(token, unsubscribe);
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[FCM] subscription error:', e.message);
+    if (e.code === 'messaging/registration-token-not-registered') {
+      try {
+        const profileRef = adminDb
+          .collection('artifacts').doc('odesa-gra-prod')
+          .collection('public').doc('data')
+          .collection('profiles').doc(userId);
+        await profileRef.update({
+          'notifications.fcmToken': admin.firestore.FieldValue.delete(),
+          'notifications.fcmTokenUpdatedAt': admin.firestore.FieldValue.delete(),
+        });
+        console.log('[FCM] Removed invalid token for user', userId);
+      } catch (cleanupErr) {
+        console.error('[FCM] cleanup error:', cleanupErr);
+      }
+    }
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('*', (req, res) => {
