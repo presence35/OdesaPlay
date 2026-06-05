@@ -5,9 +5,18 @@ export class AudioEngine {
     ambienceGain: GainNode | null = null;
     ambienceFilter: BiquadFilterNode | null = null;
     sfxEnabled: boolean = true;
+    currentAmbienceGain: number = 0.05;
     
     setSfxEnabled(enabled: boolean) {
         this.sfxEnabled = enabled;
+        if (this.ambienceGain && this.ctx) {
+            this.ambienceGain.gain.cancelScheduledValues(this.ctx.currentTime);
+            this.ambienceGain.gain.setTargetAtTime(
+                enabled ? this.currentAmbienceGain : 0,
+                this.ctx.currentTime,
+                0.1
+            );
+        }
     }
     
     ensureReady() {
@@ -28,19 +37,31 @@ export class AudioEngine {
         this.ensureReady();
         if (!this.ctx || !this.ambienceFilter || !this.ambienceGain) return;
         
+        let targetGain: number;
+        let targetFreq: number;
+        
+        if (weather === 'storm') {
+            targetFreq = 1200;
+            targetGain = 0.15;
+        } else if (weather === 'fog') {
+            targetFreq = 300;
+            targetGain = 0.08;
+        } else {
+            targetFreq = 250;
+            targetGain = 0.015;
+        }
+        
+        this.currentAmbienceGain = targetGain;
+        
         this.ambienceFilter.frequency.cancelScheduledValues(this.ctx.currentTime);
         this.ambienceGain.gain.cancelScheduledValues(this.ctx.currentTime);
         
-        if (weather === 'storm') {
-            this.ambienceFilter.frequency.setTargetAtTime(1200, this.ctx.currentTime, 1);
-            this.ambienceGain.gain.setTargetAtTime(0.15, this.ctx.currentTime, 1);
-        } else if (weather === 'fog') {
-            this.ambienceFilter.frequency.setTargetAtTime(300, this.ctx.currentTime, 1);
-            this.ambienceGain.gain.setTargetAtTime(0.08, this.ctx.currentTime, 1);
-        } else {
-            this.ambienceFilter.frequency.setTargetAtTime(250, this.ctx.currentTime, 1);
-            this.ambienceGain.gain.setTargetAtTime(0.015, this.ctx.currentTime, 1);
-        }
+        this.ambienceFilter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 1);
+        this.ambienceGain.gain.setTargetAtTime(
+            this.sfxEnabled ? targetGain : 0,
+            this.ctx.currentTime,
+            1
+        );
     }
 
     startAmbience() {
@@ -61,7 +82,7 @@ export class AudioEngine {
       this.ambienceFilter = filter;
 
       this.ambienceGain = this.ctx.createGain();
-      this.ambienceGain.gain.value = 0.05;
+      this.ambienceGain.gain.value = this.sfxEnabled ? 0.05 : 0;
 
       // Add a slow LFO to the filter to simulate waves
       const lfo = this.ctx.createOscillator();

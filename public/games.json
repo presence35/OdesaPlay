@@ -2,9 +2,17 @@
   {
     "id": "lighthouse",
     "cat": "arcade",
-    "title": { "en": "Vorontsov Lighthouse Keeper", "uk": "Маяк Воронцова" },
+    "title": { "en": "Lighthouse Keeper", "uk": "Маяк Воронцова" },
     "url": "./games/lighthouse/",
     "icon": "/images/lighthouse.png",
+    "orientation": "portrait"
+  },
+  {
+    "id": "trivia",
+    "cat": "history",
+    "title": { "en": "Odesa & Ukraine Trivia", "uk": "Вікторина про Одесу та Україну" },
+    "url": "./games/trivia/",
+    "icon": "/images/trivia.png",
     "orientation": "portrait"
   },
   {
@@ -39,13 +47,5 @@
     "url": "./games/shooter/",
     "icon": "/images/shooter.png",
     "orientation": "landscape"
-  },
-  {
-    "id": "trivia",
-    "cat": "history",
-    "title": { "en": "Odesa & Ukraine Trivia", "uk": "Вікторина про Одесу та Україну" },
-    "url": "./games/trivia/",
-    "icon": "/images/trivia.png",
-    "orientation": "portrait"
-  }
+  }  
 ]

@@ -6,10 +6,10 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
-  Zap, X, Lock, Gamepad2, Globe, Map as MapIcon, User, Pencil,
+  Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
   Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
    Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users,
-   Palette
+   Globe, Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -31,13 +31,12 @@ const TreasureHuntMap = lazy(() => import('../components/TreasureHuntMap'));
 const AdminPanel = lazy(() => import('../views/AdminPanel'));
 const SalesTool = lazy(() => import('../views/SalesTool'));
 import LoadingSpinner from '../components/LoadingSpinner';
-import ThemeToggle from '../components/ThemeToggle';
+import LanguageThemeCard from '../components/LanguageThemeCard';
 import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
 import { handleFirestoreError, transliterate, shareScore, getTier, triggerHaptic, calculatePlayerStats, getLevel, getXpForCurrentLevel, getXpForNextLevel, getXpProgress, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
 import { useTheme } from '../contexts/ThemeContext';
-
 const AVATARS = ["⚓", "🛸", "⚔️", "🥟", "🥨", "🐈", "🍉", "🎖️"];
 
 function Media({ src, imgClass, textClass }: { src: string; imgClass?: string; textClass?: string }) {
@@ -64,23 +63,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
   const { family, setFamily } = useTheme();
-  const showSetup = true;
-  const pickLang = (l: Language) => { setLang(l); };
-  const pickTheme = (f: 'odesa' | 'ukraine') => { setFamily(f); };
-
-  const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || /^bodi\d+$/i.test(profile.nickname ?? '');
-  
-  const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume } = useAudio();
-  const musicEnabledRef = useRef(musicEnabled);
-  useEffect(() => { musicEnabledRef.current = musicEnabled; }, [musicEnabled]);
-
   const [autoPlayMusic, setAutoPlayMusic] = useState(() => {
     return localStorage.getItem('odesa_auto_play_music') !== 'false';
   });
-
+  const pickTheme = (f: 'odesa' | 'ukraine') => { setFamily(f); };
+  const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || /^bodi\d+$/i.test(profile.nickname ?? '');
+  const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume } = useAudio();
+  const musicEnabledRef = useRef(musicEnabled);
+  useEffect(() => { musicEnabledRef.current = musicEnabled; }, [musicEnabled]);
+  const showSetup = true;
+  const pickLang = (l: Language) => {
+    setLang(l);
+  };
   const toggleMusic = () => {
     if (activeTracks.length === 0) {
-      // If all off, turn all on
       setActiveTracks(Object.keys(tracks) as TrackKey[]);
       setMusicEnabled(true);
     } else {
@@ -90,6 +86,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
   useEffect(() => {
     localStorage.setItem('odesa_lang', lang);
+    window.dispatchEvent(new CustomEvent('odesa:langchange'));
   }, [lang]);
 
   useEffect(() => {
@@ -1068,66 +1065,24 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             {showSetup && (
-              <div className="w-full bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-strong)] shadow-xl space-y-5">
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{t.themeLanguage}</h4>
-                  <div className="flex items-center justify-center gap-6">
-                    <button onClick={() => pickLang('uk')} className="flex flex-col items-center gap-1.5 group">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                        lang === 'uk'
-                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                      }`}>
-                        🇺🇦
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        lang === 'uk' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                      }`}>{t.langUkrainian}</span>
-                    </button>
-                    <button onClick={() => pickLang('en')} className="flex flex-col items-center gap-1.5 group">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                        lang === 'en'
-                          ? 'bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400 shadow-lg shadow-blue-500/10 scale-110'
-                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                      }`}>
-                        🇺🇸
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        lang === 'en' ? 'text-blue-400' : 'text-[var(--text-muted)]'
-                      }`}>{t.langEnglish}</span>
-                    </button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeLanguageInverse}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="language" />
+                    </div>
                   </div>
-                </div>
-                <div className="h-px bg-[var(--border-default)]" />
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{t.themeTheme}</h4>
-                  <div className="flex items-center justify-center gap-6">
-                    <button onClick={() => pickTheme('odesa')} className="flex flex-col items-center gap-1.5 group">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                        family === 'odesa'
-                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                      }`}>
-                        ⚓
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                        family === 'odesa' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                      }`}>{t.themeOdesa}</span>
-                    </button>
-                    <button onClick={() => pickTheme('ukraine')} className="flex flex-col items-center gap-1.5 group">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                        family === 'ukraine'
-                          ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                          : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                      }`}>
-                        🇺🇦
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                        family === 'ukraine' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                      }`}>{t.themeUkraine}</span>
-                    </button>
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="theme" />
+                    </div>
                   </div>
-                  <ThemeToggle darkLabel={t.themeDark} lightLabel={t.themeLight} />
                 </div>
                 <p className="text-[9px] text-[var(--text-subtle)] text-center font-bold tracking-wide">
                   {t.themeProfileNote}
@@ -1519,7 +1474,7 @@ onClick={() => {
                 {/* My Prizes */}
                   <div className="mt-8 text-left space-y-4">
                     <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-green-400" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-[var(--text-muted)] ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
+                      <Ticket className="w-4 h-4 text-[var(--text-accent)]" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-[var(--text-muted)] ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
                     </h3>
                     {playerPrizes.length === 0 ? (
                       <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noPrizes}</div>
@@ -1573,7 +1528,7 @@ onClick={() => {
                 {/* Profile High Scores */}
                 <div className="mt-8 text-left space-y-4">
                   <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-400" /> {t.highScores}</h3>
+                    <Trophy className="w-4 h-4 text-[var(--text-accent)]" /> {t.highScores}</h3>
                   {userLeaderboards.map(r => {
                     const game = gamesList.find(g => g.id === r.gameId);
                     if (!game) return null;
@@ -1606,7 +1561,7 @@ onClick={() => {
                 {/* Badges */}
                 <div className="mt-8 text-left space-y-4">
                   <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Award className="w-4 h-4" /> {t.badges}
+                    <Award className="w-4 h-4 text-[var(--text-accent)]" /> {t.badges}
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {BADGE_DEFINITIONS.map(badge => {
@@ -1672,7 +1627,7 @@ onClick={() => {
                 {/* Notification Settings */}
                 <div className="mt-8 text-left space-y-4">
                   <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Bell className="w-4 h-4" /> {t.notifications}</h3>
+                    <Bell className="w-4 h-4 text-[var(--text-accent)]" /> {t.notifications}</h3>
                   <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
                     {([
                       { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },
@@ -1749,7 +1704,7 @@ onClick={() => {
                 {/* Music Settings */}
                 <div className="mt-8 text-left space-y-4">
                   <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Music className="w-4 h-4" /> {t.musicSettings}</h3>
+                    <Music className="w-4 h-4 text-[var(--text-accent)]" /> {t.musicSettings}</h3>
                   <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -1773,13 +1728,13 @@ onClick={() => {
                         </button>
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => prevTrack()} 
+                            onClick={() => { if (!musicEnabled) setMusicEnabled(true); prevTrack(); }} 
                             className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipBack className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => skipTrack()} 
+                            onClick={() => { if (!musicEnabled) setMusicEnabled(true); skipTrack(); }} 
                             className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipForward className="w-4 h-4" />
@@ -1807,81 +1762,23 @@ onClick={() => {
                   </div>
                 </div>
 
-                {/* Language Settings */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Globe className="w-4 h-4" /> {t.themeLanguageInverse}</h3>
-                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] shadow-xl">
-                    <div className="flex items-center justify-center gap-8">
-                      <button onClick={() => setLang('uk')} className="flex flex-col items-center gap-2 group">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                          lang === 'uk'
-                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                        }`}>
-                          🇺🇦
-                        </div>
-                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          lang === 'uk' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                        }`}>
-                          {t.langUkrainian}
-                        </span>
-                      </button>
-                      <button onClick={() => setLang('en')} className="flex flex-col items-center gap-2 group">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                          lang === 'en'
-                            ? 'bg-gradient-to-b from-red-500/20 to-blue-600/20 border-2 border-blue-400 shadow-lg shadow-blue-500/10 scale-110'
-                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                        }`}>
-                          🇺🇸
-                        </div>
-                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          lang === 'en' ? 'text-blue-400' : 'text-[var(--text-muted)]'
-                        }`}>
-                          {t.langEnglish}
-                        </span>
-                      </button>
+                {/* Language & Theme Settings */}
+                <div className="mt-8 grid grid-cols-2 gap-4">
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeLanguageInverse}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="language" />
                     </div>
                   </div>
-                </div>
-
-                {/* Theme Settings */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
-                  </h3>
-                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] shadow-xl space-y-4">
-                    <div className="flex items-center justify-center gap-8">
-                      <button onClick={() => setFamily('odesa')} className="flex flex-col items-center gap-2 group">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                          family === 'odesa'
-                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                        }`}>
-                          ⚓
-                        </div>
-                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          family === 'odesa' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                        }`}>
-                          {t.themeOdesa}
-                        </span>
-                      </button>
-                      <button onClick={() => setFamily('ukraine')} className="flex flex-col items-center gap-2 group">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all ${
-                          family === 'ukraine'
-                            ? 'bg-gradient-to-b from-[var(--btn-primary-bg)]/30 to-[var(--accent-bg)]/30 border-2 border-[var(--accent-bg)] shadow-lg shadow-[var(--accent-bg)]/10 scale-110'
-                            : 'bg-[var(--bg-elevated)]/50 border-2 border-[var(--border-strong)] opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-                        }`}>
-                          🇺🇦
-                        </div>
-                        <span className={`font-bold uppercase tracking-wider text-[10px] transition-all ${
-                          family === 'ukraine' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)]'
-                        }`}>
-                          {t.themeUkraine}
-                        </span>
-                      </button>
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="theme" />
                     </div>
-                    <ThemeToggle darkLabel={t.themeDark} lightLabel={t.themeLight} />
                   </div>
                 </div>
               </div>

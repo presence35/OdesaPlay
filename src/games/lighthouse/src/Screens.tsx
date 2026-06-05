@@ -11,7 +11,7 @@ interface StartScreenProps {
 
 export function StartScreen({ onStart, t }: StartScreenProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-between pt-12 pb-8 p-6 text-center z-10 relative bg-[#0A1128] overflow-hidden">
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center z-10 relative bg-[#0A1128]">
       {/* Background Image */}
       <div 
          className="absolute bottom-0 w-full h-1/2 z-0 opacity-70 bg-center bg-no-repeat bg-contain mix-blend-screen pointer-events-none" 
@@ -21,8 +21,8 @@ export function StartScreen({ onStart, t }: StartScreenProps) {
       {/* Visual Accent */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-48 h-48 bg-yellow-100/10 rounded-full blur-3xl pointer-events-none" />
       
-      {/* Title Box - at the very top */}
-      <div className="relative z-10 w-full mb-8">
+      {/* Title Box */}
+      <div className="relative z-10 w-full mb-8 mt-8">
         <h1 className="font-display tracking-tight text-5xl font-bold uppercase drop-shadow-[0_0_15px_rgba(248,250,252,0.3)]">
           <span className="text-[#0057B7]">Vorontsov</span><br/>
           <span className="text-[#FFD700]">Keeper</span>
@@ -32,7 +32,7 @@ export function StartScreen({ onStart, t }: StartScreenProps) {
         </p>
       </div>
 
-      <div className="space-y-2 mb-auto text-sm text-slate-300 bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center w-full relative z-10 backdrop-blur-sm">
+      <div className="space-y-2 text-sm text-slate-300 bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center w-full relative z-10 backdrop-blur-sm">
         <p><span className="text-[#FFD700] font-bold">SWIPE</span> {t.swipeRadio}</p>
         <p><span className="text-[#FFD700] font-bold">TAP</span> {t.tapLight}</p>
         <p><span className="text-[#FFD700] font-bold">SWIPE</span> {t.swipePump}</p>

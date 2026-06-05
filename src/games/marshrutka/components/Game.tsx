@@ -817,10 +817,10 @@ export default function Game() {
         window.Odesa.onStop(() => {
           setGameState('gameover');
           playSound('gameover');
-          if (window.Odesa.gameOver) window.Odesa.gameOver(scoreRef.current);
-          if (window.Odesa.saveScore) window.Odesa.saveScore(scoreRef.current);
+          if (window.Odesa.gameOver) window.Odesa.gameOver(Math.max(0, maxScoreRef.current));
+          if (window.Odesa.saveScore) window.Odesa.saveScore(Math.max(0, maxScoreRef.current));
           if (window.parent) {
-            window.parent.postMessage({ type: 'gameOver', score: scoreRef.current, payload: scoreRef.current }, window.location.origin);
+            window.parent.postMessage({ type: 'gameOver', score: Math.max(0, maxScoreRef.current), payload: Math.max(0, maxScoreRef.current) }, window.location.origin);
           }
         });
       }
@@ -1013,12 +1013,12 @@ export default function Game() {
             setGameState('win');
             playSound('win');
             if (window.Odesa) {
-              if (window.Odesa.win) window.Odesa.win(scoreRef.current);
-              if (window.Odesa.saveScore) window.Odesa.saveScore(scoreRef.current);
+              if (window.Odesa.win) window.Odesa.win(Math.max(0, maxScoreRef.current));
+              if (window.Odesa.saveScore) window.Odesa.saveScore(Math.max(0, maxScoreRef.current));
             }
             if (window.parent) {
-              window.parent.postMessage({ type: 'win', score: scoreRef.current, payload: scoreRef.current }, window.location.origin);
-              window.parent.postMessage({ type: 'saveScore', score: scoreRef.current, payload: scoreRef.current }, window.location.origin);
+              window.parent.postMessage({ type: 'win', score: Math.max(0, maxScoreRef.current), payload: Math.max(0, maxScoreRef.current) }, window.location.origin);
+              window.parent.postMessage({ type: 'saveScore', score: Math.max(0, maxScoreRef.current), payload: Math.max(0, maxScoreRef.current) }, window.location.origin);
             }
             return 0;
           }
@@ -1591,13 +1591,13 @@ export default function Game() {
       setGameState('gameover');
       playSound('gameover');
       if (window.Odesa) {
-        if (window.Odesa.gameOver) window.Odesa.gameOver(scoreRef.current);
-        if (window.Odesa.saveScore) window.Odesa.saveScore(scoreRef.current);
+        if (window.Odesa.gameOver) window.Odesa.gameOver(Math.max(0, maxScoreRef.current));
+        if (window.Odesa.saveScore) window.Odesa.saveScore(Math.max(0, maxScoreRef.current));
       }
       if (window.parent) {
-        window.parent.postMessage({ type: 'gameOver', score: scoreRef.current, payload: scoreRef.current }, window.location.origin);
+        window.parent.postMessage({ type: 'gameOver', score: Math.max(0, maxScoreRef.current), payload: Math.max(0, maxScoreRef.current) }, window.location.origin);
       }
-    }
+    };
 
     if (screenShakeRef.current > 0) {
       screenShakeRef.current *= 0.9;

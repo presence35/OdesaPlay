@@ -8,11 +8,14 @@ const BETA_BANNER_KEY = 'odesa_beta_banner_dismissed';
 export default function BetaBanner() {
   const [dismissed, setDismissed] = useState(true);
   const [gamePlaying, setGamePlaying] = useState(false);
-  const [lang, setLang] = useState<Language>('uk');
+  const [lang, setLang] = useState<Language>(() => (localStorage.getItem('odesa_lang') as Language) || 'uk');
 
   useEffect(() => {
-    setLang((localStorage.getItem('odesa_lang') as Language) || 'uk');
+    const updateLang = () => setLang((localStorage.getItem('odesa_lang') as Language) || 'uk');
+    updateLang();
     setDismissed(localStorage.getItem(BETA_BANNER_KEY) === 'true');
+    window.addEventListener('odesa:langchange', updateLang);
+    return () => window.removeEventListener('odesa:langchange', updateLang);
   }, []);
 
   useEffect(() => {

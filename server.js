@@ -12,7 +12,7 @@ if (existsSync(SA_PATH)) {
     const sa = JSON.parse(readFileSync(SA_PATH, 'utf-8'));
     admin.initializeApp({ credential: admin.credential.cert(sa) });
     const { getFirestore } = require('firebase-admin/firestore');
-    adminDb = getFirestore();
+    adminDb = getFirestore('ai-studio-2a6d6b8a-4e14-4fbf-a82e-397e0cd65800');
     console.log('[FCM] Firebase Admin initialized');
   } catch (e) {
     console.warn('[FCM] Failed to init Firebase Admin:', e.message);

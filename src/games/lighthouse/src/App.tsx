@@ -30,6 +30,7 @@ export default function App() {
 
   const scoreRef = useRef(score);
   useEffect(() => { scoreRef.current = score; }, [score]);
+  const careerScoreRef = useRef(0);
 
   const handleDayEnd = (earnings: number, shiftDocked: number) => {
     const newScore = score + earnings;
@@ -38,11 +39,12 @@ export default function App() {
     setLastEarnings(earnings);
     setTotalDockedShips(newTotalShips);
     setScore(newScore);
+    if (earnings > 0) careerScoreRef.current += earnings;
     
     if (newScore < 0 && newTotalShips >= 3) {
       setCurrentScreen('gameover');
       const odesa = (window as any).Odesa;
-      if (odesa) odesa.gameOver(newScore);
+      if (odesa) odesa.gameOver(Math.max(0, careerScoreRef.current));
     } else {
       setCurrentScreen('upgrade');
     }
@@ -62,8 +64,6 @@ export default function App() {
   };
 
   const handleGameOver = () => {
-    const odesa = (window as any).Odesa;
-    if (odesa) odesa.gameOver(scoreRef.current);
     window.parent.postMessage({ type: 'ODESAPLAY_RESTART' }, '*');
   };
 
@@ -79,7 +79,7 @@ export default function App() {
 
       odesa.onStop(() => {
         setCurrentScreen('gameover');
-        if (odesa) odesa.gameOver(scoreRef.current);
+        if (odesa) odesa.gameOver(Math.max(0, careerScoreRef.current));
       });
 
       odesa.ready();
@@ -99,7 +99,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#020617] flex justify-center items-center md:py-8 font-sans selection:bg-yellow-500/30">
       {/* Mobile-first constraints block */}
-      <div className="w-full h-screen md:h-[850px] max-w-[430px] bg-[#0A1128] text-white relative flex flex-col shadow-2xl md:rounded-[2.5rem] border-0 md:border-[12px] border-[#1E293B] overflow-hidden">
+      <div className="w-full min-h-dvh md:h-[850px] max-w-[430px] bg-[#0A1128] text-white relative flex flex-col shadow-2xl md:rounded-[2.5rem] border-0 md:border-[12px] border-[#1E293B]">
         
         {currentScreen === 'start' && (
           <StartScreen

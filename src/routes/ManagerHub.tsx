@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   collection, doc, onSnapshot,
   setDoc, deleteDoc, updateDoc, serverTimestamp, increment, getDoc, getDocs, addDoc,
@@ -67,6 +68,7 @@ export default function ManagerHub() {
   const [tournamentTopWinners, setTournamentTopWinners] = useState(1);
   const { entries: tournamentEntries } = useTournamentLeaderboard(activeTournament?.id || null);
   const [tick, setTick] = useState(0);
+  const [animatingOutIds, setAnimatingOutIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (activeTournament?.id) {
@@ -221,6 +223,7 @@ export default function ManagerHub() {
 
   const verifyClaim = async (claim: Claim) => {
     if (!claim.id) return;
+    setAnimatingOutIds(prev => new Set(prev).add(claim.id!));
     try {
       await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'claims', claim.id), {
         redeemed: true,
@@ -231,7 +234,11 @@ export default function ManagerHub() {
         { prizeCounts: { [claim.rewardType]: increment(1) } },
         { merge: true }
       );
+      setTimeout(() => {
+        setAnimatingOutIds(prev => { const next = new Set(prev); next.delete(claim.id!); return next; });
+      }, 420);
     } catch (e) {
+      setAnimatingOutIds(prev => { const next = new Set(prev); next.delete(claim.id!); return next; });
       console.error(e);
     }
   };
@@ -401,8 +408,17 @@ export default function ManagerHub() {
                 <h3 className="text-xs font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
                   <Zap className="w-4 h-4 text-[var(--text-accent)]" fill="currentColor" /> {t.activeWins}
                 </h3>
+                <AnimatePresence mode="popLayout">
                 {venueClaims.filter(w => !w.redeemed).map(w => (
-                  <div key={w.id} className="bg-[var(--bg-secondary)]/50 p-5 rounded-[24px] border border-[var(--border-default)] flex justify-between items-center shadow-xl">
+                  <motion.div
+                    key={w.id}
+                    layout
+                    initial={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, height: 0, margin: 0, padding: 0, overflow: 'hidden' }}
+                    transition={{ duration: 0.42, ease: 'easeInOut' }}
+                    className="bg-[var(--bg-secondary)]/50 p-5 rounded-[24px] border border-[var(--border-default)] flex justify-between items-center shadow-xl"
+                    style={{ pointerEvents: animatingOutIds.has(w.id!) ? 'none' : 'auto' }}
+                  >
                     <div className="min-w-0 mr-3">
                       <div className="text-lg font-black text-[var(--text-accent)] leading-none mb-1 uppercase italic truncate">{w.rewardType}</div>
                       <div className="text-sm text-[var(--text-primary)]/80 font-bold leading-none mb-1">{w.nickname || 'Player'}</div>
@@ -415,12 +431,14 @@ export default function ManagerHub() {
                     </div>
                     <button
                       onClick={() => verifyClaim(w)}
-                      className="shrink-0 bg-white text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-gray-100 hover:shadow-2xl active:shadow-md transition-all shadow-xl"
+                      disabled={animatingOutIds.has(w.id!)}
+                      className="shrink-0 bg-white text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-gray-100 hover:shadow-2xl active:shadow-md transition-all shadow-xl disabled:opacity-50"
                     >
                       {w.code}
                     </button>
-                  </div>
+                  </motion.div>
                 ))}
+                </AnimatePresence>
                 {venueClaims.filter(w => !w.redeemed).length === 0 && (
                   <div className="py-12 text-center text-[var(--text-subtle)] italic border-2 border-dashed border-[var(--border-default)] rounded-[32px]">{t.noWinners}</div>
                 )}
@@ -448,7 +466,7 @@ export default function ManagerHub() {
               <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-black uppercase text-[var(--text-muted)] flex items-center gap-2 tracking-widest italic">
-                    <Gamepad2 className="w-4 h-4 text-red-400" /> {t.livePlayers}
+                    <Gamepad2 className="w-4 h-4 text-[var(--text-accent)]" /> {t.livePlayers}
                   </h3>
                   {venueSessions.length > 0 && (
                     <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-400 uppercase tracking-wider">
@@ -626,7 +644,7 @@ export default function ManagerHub() {
                 return (
                 <div className="bg-[var(--bg-secondary)]/50 p-6 rounded-[32px] border border-[var(--border-default)] shadow-inner">
                   <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
-                    <Ticket className="w-4 h-4 text-green-400" /> Winners
+                    <Ticket className="w-4 h-4 text-[var(--text-accent)]" /> Winners
                   </h3>
                   <div className="bg-gradient-to-r from-yellow-400/10 to-orange-400/5 p-4 rounded-2xl border border-[var(--border-accent)] mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">

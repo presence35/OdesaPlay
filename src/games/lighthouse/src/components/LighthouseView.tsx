@@ -16,7 +16,7 @@ interface LighthouseViewProps {
 export function LighthouseView({ weather, ships, lightOn, popups, lightningAlpha = 0, drones = [], onCycleWeather }: LighthouseViewProps) {
 
   return (
-    <div className="relative w-full h-[45%] bg-[#0A1128] overflow-hidden flex flex-col justify-end isolate">
+    <div className="relative w-full h-[45%] bg-[#0A1128] flex flex-col justify-end isolate">
       {/* Weather Effects */}
       {weather === 'clear' && (
         <React.Fragment>
@@ -79,7 +79,7 @@ export function LighthouseView({ weather, ships, lightOn, popups, lightningAlpha
       <div className="absolute top-4 left-4 right-4 z-40 flex justify-end items-start pointer-events-none">
         <div 
           onClick={onCycleWeather}
-          className={`pointer-events-auto cursor-pointer px-3 py-1 rounded border uppercase font-bold text-xs tracking-widest shadow-md flex items-center gap-2 transition-colors
+          className={`pointer-events-auto cursor-pointer select-none px-3 py-1 rounded border uppercase font-bold text-xs tracking-widest shadow-md flex items-center gap-2 transition-colors
           ${weather === 'clear' ? 'bg-slate-900/60 border-slate-500 text-slate-300' : ''}
           ${weather === 'fog' ? 'bg-white/80 border-slate-300 text-slate-800' : ''}
           ${weather === 'storm' ? 'bg-red-950/80 border-red-500 text-red-500 animate-pulse' : ''}
@@ -96,7 +96,7 @@ export function LighthouseView({ weather, ships, lightOn, popups, lightningAlpha
       <div className="absolute bottom-0 -left-6 md:-left-2 z-[40] flex items-end drop-shadow-2xl scale-[0.28] md:scale-[0.36] origin-bottom-left">
           <div className="relative">
            {/* SVG rendering */}
-           <img src={lighthouseImg} alt="Lighthouse" width="240" height="400" className={`object-contain transition-all duration-1000 ${weather === 'storm' ? 'brightness-50' : weather === 'fog' ? 'brightness-75 blur-[1px]' : ''}`} />
+           <img src={lighthouseImg} alt="Lighthouse" width="240" height="400" className={`object-contain transition-all duration-1000 pointer-events-none select-none ${weather === 'storm' ? 'brightness-50' : weather === 'fog' ? 'brightness-75 blur-[1px]' : ''}`} />
            
            {/* Light Beam overlay */}
            <div 

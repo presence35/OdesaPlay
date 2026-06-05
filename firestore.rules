@@ -81,7 +81,6 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasAny(['uid', 'nickname', 'avatar', 'gameId', 'score', 'timestamp', 'venueId', 'playCount', 'alertId'])
         && isValidString(request.resource.data.nickname, 15)
-        && request.resource.data.gameId in ['shooter', 'drones', 'marshrutka', 'trivia']
         && isValidScore(request.resource.data.score);
       allow update: if isAuth()
         && resource.data.uid == request.auth.uid
