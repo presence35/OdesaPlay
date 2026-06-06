@@ -29,8 +29,7 @@ app.use(express.json());
 // ── Odesa air raid alert poller ────────────────────────────────────────────
 let odesaAlertActive = false;
 let odesaAlertData = { activeAlerts: [], regionEngName: 'Odeska region', lastUpdate: null };
-const ODESA_REGION_ID = 18;
-const SIREN_API = `https://siren.pp.ua/api/v3/alerts/${ODESA_REGION_ID}`;
+const UBILLING_API = 'https://ubilling.net.ua/aerialalerts/';
 
 async function sendToTopic(topic, title, body, url = '/') {
   if (!admin) return;
@@ -46,16 +45,16 @@ let idleCheckInterval = null;
 
 async function checkOdesaAlerts() {
   try {
-    const res = await fetch(SIREN_API);
+    const res = await fetch(UBILLING_API);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const region = data[0] ?? {};
+    const odesa = data.states?.['Одеська область'] ?? {};
+    const hasAirAlert = odesa.alertnow === true;
     odesaAlertData = {
-      activeAlerts: region.activeAlerts ?? [],
-      regionEngName: region.regionEngName ?? 'Odeska region',
-      lastUpdate: region.lastUpdate ?? null,
+      activeAlerts: hasAirAlert ? [{ type: 'AIR', lastUpdate: odesa.changed }] : [],
+      regionEngName: 'Odeska region',
+      lastUpdate: data.cachedat ?? null,
     };
-    const hasAirAlert = odesaAlertData.activeAlerts.some(a => a.type === 'AIR');
 
     if (hasAirAlert && !odesaAlertActive) {
       odesaAlertActive = true;

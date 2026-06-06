@@ -41,6 +41,8 @@ export function useAudio() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wasPlayingRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
 
   const scheduleSave = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -61,6 +63,24 @@ export function useAudio() {
     }
   }, [volume]);
 
+  const playTrackSrcRef = useRef<(src: string, track: TrackKey, retries?: number) => void>(null!);
+
+  const playTrackSrc = (src: string, track: TrackKey, retries = 0) => {
+    if (!audioRef.current) return;
+    audioRef.current.src = src;
+    audioRef.current.play().catch(() => {
+      if (retries < TRACK_ORDER.length) {
+        const idx = (TRACK_ORDER.indexOf(track) + 1) % TRACK_ORDER.length;
+        const nextTrack = TRACK_ORDER[idx];
+        playTrackSrc(TRACKS[nextTrack], nextTrack, retries + 1);
+        setCurrentTrack(nextTrack);
+        setCurrentIndex(idx);
+      }
+    });
+  };
+
+  playTrackSrcRef.current = playTrackSrc;
+
   const playNextTrack = () => {
     if (activeTracks.length === 0) {
       setMusicEnabled(false);
@@ -71,12 +91,7 @@ export function useAudio() {
     if (audioRef.current) {
       const src = TRACKS[nextTrack];
       if (src) {
-        audioRef.current.src = src;
-        audioRef.current.play().catch(e => console.warn('Audio play failed', e));
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = null;
-          navigator.mediaSession.playbackState = 'none';
-        }
+        playTrackSrc(src, nextTrack);
         setCurrentTrack(nextTrack);
         setCurrentIndex(TRACK_ORDER.indexOf(nextTrack));
       }
@@ -87,7 +102,18 @@ export function useAudio() {
     if (!audioRef.current) {
       audioRef.current = new Audio();
       audioRef.current.onended = playNextTrack;
+      audioRef.current.onerror = () => {
+        const track = currentTrackRef.current;
+        if (track) {
+          const idx = (TRACK_ORDER.indexOf(track) + 1) % TRACK_ORDER.length;
+          const nextTrack = TRACK_ORDER[idx];
+          playTrackSrcRef.current(TRACKS[nextTrack], nextTrack);
+          setCurrentTrack(nextTrack);
+          setCurrentIndex(idx);
+        }
+      };
       if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
         navigator.mediaSession.playbackState = 'none';
       }
     }
@@ -112,8 +138,9 @@ export function useAudio() {
           navigator.mediaSession.playbackState = 'none';
         }
       } else {
-        if (wasPlayingRef.current && musicEnabled && activeTracks.length > 0) {
-          audioRef.current?.play().catch(e => console.warn('Audio play resume failed', e));
+        const lastTrack = currentTrackRef.current;
+        if (wasPlayingRef.current && musicEnabled && activeTracks.length > 0 && audioRef.current && lastTrack) {
+          playTrackSrc(audioRef.current.src || TRACKS[lastTrack], lastTrack);
           if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = null;
             navigator.mediaSession.playbackState = 'none';
@@ -133,7 +160,6 @@ export function useAudio() {
     const shouldPlay = (musicEnabled && activeTracks.length > 0) || forcePlay;
     if (!shouldPlay) return;
 
-    // Check if src is missing or invalid
     const currentSrc = audioRef.current.src;
     if (!currentSrc || currentSrc === "" || currentSrc.endsWith("undefined") || currentSrc === window.location.href) {
       if (activeTracks.length > 0) {
@@ -172,7 +198,6 @@ export function useAudio() {
     let nextIndex = (currentIndex + 1) % TRACK_ORDER.length;
     
     if (activeTracks.length > 0) {
-      // Find next track in TRACK_ORDER that is in activeTracks
       for (let i = 1; i <= TRACK_ORDER.length; i++) {
         const idx = (currentIndex + i) % TRACK_ORDER.length;
         if (activeTracks.includes(TRACK_ORDER[idx])) {
@@ -186,13 +211,15 @@ export function useAudio() {
     setCurrentIndex(nextIndex);
     
     if (audioRef.current) {
-      audioRef.current.src = TRACKS[track];
+      const src = TRACKS[track];
       if (musicEnabled) {
-        audioRef.current.play().catch(e => console.error('Audio play failed', e));
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = null;
-          navigator.mediaSession.playbackState = 'none';
-        }
+        playTrackSrc(src, track);
+      } else {
+        audioRef.current.src = src;
+      }
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
       }
       setCurrentTrack(track);
     }
@@ -202,7 +229,6 @@ export function useAudio() {
     let prevIndex = (currentIndex - 1 + TRACK_ORDER.length) % TRACK_ORDER.length;
     
     if (activeTracks.length > 0) {
-      // Find previous track in TRACK_ORDER that is in activeTracks
       for (let i = 1; i <= TRACK_ORDER.length; i++) {
         const idx = (currentIndex - i + TRACK_ORDER.length) % TRACK_ORDER.length;
         if (activeTracks.includes(TRACK_ORDER[idx])) {
@@ -216,13 +242,15 @@ export function useAudio() {
     setCurrentIndex(prevIndex);
     
     if (audioRef.current) {
-      audioRef.current.src = TRACKS[track];
+      const src = TRACKS[track];
       if (musicEnabled) {
-        audioRef.current.play().catch(e => console.error('Audio play failed', e));
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = null;
-          navigator.mediaSession.playbackState = 'none';
-        }
+        playTrackSrc(src, track);
+      } else {
+        audioRef.current.src = src;
+      }
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
       }
       setCurrentTrack(track);
     }

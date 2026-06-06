@@ -283,7 +283,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
     const gameFromParam = params.get('game');
     const gameFromPath = location.pathname.replace(/^\//, '');
-    const validGameIds = ['drones','shooter','marshrutka','trivia','lighthouse'];
+    const validGameIds = ['drones','trivia','lighthouse','marshrutka','football','shooter'];
     const gameId = (gameFromParam && validGameIds.includes(gameFromParam))
       ? gameFromParam
       : (validGameIds.includes(gameFromPath) ? gameFromPath : null);

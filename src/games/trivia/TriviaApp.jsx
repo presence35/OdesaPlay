@@ -23,9 +23,23 @@ const CAT_ICONS = {
   Sports: "🏆",
 };
 
-// SFX Utility using shared AudioContext to handle browser autoplay policies
-import { getAudioContext, resumeAudioContext } from '../../utils/audioContext';
+// Inlined from ../../utils/audioContext to avoid circular chunk dependency
 let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new Ctor();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+function resumeAudioContext() {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
 const playSound = (type, enabled) => {
   if (!enabled) return;
   try {
@@ -94,13 +108,9 @@ export default function TriviaGame() {
   const pausedAtRef = useRef(null);
   const [cheatNotice, setCheatNotice] = useState(null);
   const screenRef = useRef(screen);
-  const questionsRef = useRef(questions);
-  const currentIdxRef = useRef(currentIdx);
 
   useEffect(() => { scoreRef.current = score; }, [score]);
   useEffect(() => { screenRef.current = screen; }, [screen]);
-  useEffect(() => { questionsRef.current = questions; }, [questions]);
-  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
   useEffect(() => {
     if (window.Odesa) {
@@ -151,6 +161,12 @@ export default function TriviaGame() {
 
   const [questions, setQuestions] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
+  const questionsRef = useRef(questions);
+  const currentIdxRef = useRef(currentIdx);
+
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
+  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
+
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
 
@@ -511,6 +527,8 @@ export default function TriviaGame() {
           </div>
         )}
 
+      </div>
+
         {/* ===== RESULTS ===== */}
         {screen === "results" && (
           <GameEndScreen
@@ -526,7 +544,6 @@ export default function TriviaGame() {
           />
         )}
 
-      </div>
     </div>
   );
 }

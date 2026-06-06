@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Game } from './types';
 import { Language } from '../../language';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const ShooterApp = lazy(() => import('../../games/shooter/App'));
 const DronesApp = lazy(() => import('../../games/drones/App'));
@@ -81,7 +82,14 @@ export function renderGameComponent(
 
   return (
     <div className="flex-1 w-full relative overflow-hidden flex flex-col bg-black">
-      <Suspense fallback={<div className="flex-1 bg-black" />}>
+      <Suspense fallback={
+  <div className="flex-1 flex items-center justify-center bg-black">
+    <LoadingSpinner
+      text={activeGame?.title?.[lang as 'en' | 'uk'] || 'Loading...'}
+      className="m-0"
+    />
+  </div>
+}>
         {activeGame.id === 'shooter' && <ShooterApp />}
         {activeGame.id === 'drones' && <DronesApp />}
         {activeGame.id === 'marshrutka' && <MarshrutkaApp />}

@@ -39,17 +39,12 @@ export default function BetaBanner() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed top-0 left-0 right-0 z-[300] bg-[var(--accent-bg)]"
+          className="fixed top-0 left-0 right-0 z-[300] bg-[var(--accent-bg)] cursor-pointer"
+          onClick={dismiss}
         >
           <div className="flex items-center justify-between px-4 h-9 text-sm font-bold uppercase tracking-wider text-[#0057b8]">
             <span>{t.betaBanner}</span>
-            <button
-              onClick={dismiss}
-              className="opacity-60 hover:opacity-100 transition-opacity cursor-pointer text-red-500"
-              aria-label="Dismiss"
-            >
-              <X size={14} />
-            </button>
+            <X size={14} className="opacity-60 text-red-500" />
           </div>
         </motion.div>
       )}

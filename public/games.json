@@ -1,10 +1,10 @@
 [
   {
-    "id": "lighthouse",
+    "id": "drones",
     "cat": "arcade",
-    "title": { "en": "Lighthouse Keeper", "uk": "Маяк Воронцова" },
-    "url": "./games/lighthouse/",
-    "icon": "/images/lighthouse.png",
+    "title": { "en": "Russian Drones", "uk": "Російські Дрони" },
+    "url": "./games/drones/",
+    "icon": "/images/drone.png",
     "orientation": "portrait"
   },
   {
@@ -16,11 +16,11 @@
     "orientation": "portrait"
   },
   {
-    "id": "drones",
+    "id": "lighthouse",
     "cat": "arcade",
-    "title": { "en": "Russian Drones", "uk": "Російські Дрони" },
-    "url": "./games/drones/",
-    "icon": "/images/drone.png",
+    "title": { "en": "Lighthouse Keeper", "uk": "Маяк Воронцова" },
+    "url": "./games/lighthouse/",
+    "icon": "/images/lighthouse.png",
     "orientation": "portrait"
   },
   {

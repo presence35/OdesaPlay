@@ -16,48 +16,48 @@ export default function LanguageThemeCard({ lang, onLangChange, t, variant }: La
 
   if (variant === 'language') {
     return (
-      <div className="flex items-center justify-center gap-6">
-        <button onClick={() => onLangChange('uk')} className="group">
-          <div className={`w-14 h-14 flex items-center justify-center text-4xl transition-all ${
-            lang === 'uk'
-              ? 'scale-110'
-              : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-          }`}>
-            🇺🇦
-          </div>
+      <div className="flex items-center justify-center gap-3">
+        <button onClick={() => onLangChange('uk')} className="group p-0 border-0 bg-transparent cursor-pointer">
+          <img src="/images/ukraine.png"
+            className={`max-sm:w-10 w-12 transition-all rounded-lg ${
+              lang === 'uk'
+                ? 'ring-2 ring-[var(--btn-primary-bg)]'
+                : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+            }`}
+            alt="Українська" />
         </button>
-        <button onClick={() => onLangChange('en')} className="group">
-          <div className={`w-14 h-14 flex items-center justify-center text-4xl transition-all ${
-            lang === 'en'
-              ? 'scale-110'
-              : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-          }`}>
-            🇺🇸
-          </div>
+        <button onClick={() => onLangChange('en')} className="group p-0 border-0 bg-transparent cursor-pointer">
+          <img src="/images/english.png"
+            className={`max-sm:w-10 w-12 transition-all rounded-lg ${
+              lang === 'en'
+                ? 'ring-2 ring-[var(--btn-primary-bg)]'
+                : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+            }`}
+            alt="English" />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center gap-6">
-      <button onClick={() => setFamily('odesa')} className="group">
-        <div className={`w-14 h-14 flex items-center justify-center transition-all ${
-          family === 'odesa'
-            ? 'scale-110'
-            : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-        }`}>
-          <img src="/images/odesa.png" className="w-12 h-12 object-contain" alt="Odesa" />
-        </div>
+    <div className="flex items-center justify-center gap-3">
+      <button onClick={() => setFamily('odesa')} className="group p-0 border-0 bg-transparent cursor-pointer">
+        <img src="/images/odesa.png"
+          className={`max-sm:w-10 w-12 transition-all rounded-lg ${
+            family === 'odesa'
+              ? 'ring-2 ring-[var(--btn-primary-bg)]'
+              : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+          }`}
+          alt="Odesa" />
       </button>
-      <button onClick={() => setFamily('ukraine')} className="group">
-        <div className={`w-14 h-14 flex items-center justify-center transition-all ${
-          family === 'ukraine'
-            ? 'scale-110'
-            : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
-        }`}>
-          <img src="/images/ukraine.png" className="w-12 h-12 object-contain" alt="Ukraine" />
-        </div>
+      <button onClick={() => setFamily('ukraine')} className="group p-0 border-0 bg-transparent cursor-pointer">
+        <img src="/images/ukraine.png"
+          className={`max-sm:w-10 w-12 transition-all rounded-lg ${
+            family === 'ukraine'
+              ? 'ring-2 ring-[var(--btn-primary-bg)]'
+              : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'
+          }`}
+          alt="Ukraine" />
       </button>
       <ThemeToggle />
     </div>
