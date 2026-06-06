@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
   Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
-  Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack,
+  Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack, Sun, Moon,
    Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users,
    Globe, Palette
 } from 'lucide-react';
@@ -62,7 +62,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
-  const { family, setFamily } = useTheme();
+  const { family, setFamily, mode, toggleMode } = useTheme();
   const [autoPlayMusic, setAutoPlayMusic] = useState(() => {
     return localStorage.getItem('odesa_auto_play_music') !== 'false';
   });
@@ -911,12 +911,12 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6"
+            className="fixed inset-0 z-[100] bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-6"
           >
             <div className="w-full max-w-sm bg-gradient-to-b from-[var(--accent-bg)] to-[var(--accent-bg)]/80 text-[var(--text-on-accent)] rounded-[40px] p-8 text-center shadow-2xl relative overflow-hidden">
               <Ticket className="w-16 h-16 mx-auto mb-4" fill="currentColor" />
               <h2 className="text-3xl font-black italic mb-4 uppercase leading-none">{t.notice}</h2>
-              <div className="border-y-2 border-black/20 py-6 mb-6">
+              <div className="border-y-2 border-[var(--border-default)]/20 py-6 mb-6">
                 <h3 className="text-3xl font-black tracking-tighter leading-none mb-1 uppercase italic">{activeReward.rewardType}</h3>
                 <p className="text-[10px] font-black opacity-60 uppercase">{activeReward.venue}</p>
               </div>
@@ -924,7 +924,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               <p className="text-xs font-bold mb-8 italic flex items-center justify-center gap-2">
                 <Clock className="w-4 h-4" /> {t.expires}: {Math.floor(timeLeft/60)}:{(timeLeft%60).toString().padStart(2,'0')}
               </p>
-              <button onClick={() => setActiveReward(null)} className="w-full py-4 bg-black text-[var(--text-accent)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest">{t.close}</button>
+              <button onClick={() => setActiveReward(null)} className="w-full py-4 bg-[var(--btn-primary-bg)] text-[var(--text-on-accent)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest">{t.close}</button>
             </div>
           </motion.div>
         )}
@@ -936,11 +936,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-0 z-[60] bg-black flex flex-col overflow-hidden overscroll-none"
+            className="fixed inset-0 z-[60] bg-[var(--bg-primary)] flex flex-col overflow-hidden overscroll-none"
           >
             <header className="px-3 py-1.5 flex justify-between items-center border-b border-[var(--border-strong)] bg-[var(--bg-primary)]">
               <div className="flex items-center gap-4">
-                <button onClick={() => gameActive ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors">
+                <button onClick={() => gameActive ? setShowQuitConfirm(true) : (setActiveGame(null), setTournamentPlayId(null))} className="flex items-center gap-2 text-[var(--text-error)] hover:text-[var(--text-error)] text-xs font-bold uppercase tracking-widest transition-colors">
                   <span className="text-sm">🏠</span> {t.quit}
                 </button>
                 {gameActive && isAdmin && (
@@ -960,14 +960,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setSfxEnabled(!sfxEnabled)} 
-                  className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${sfxEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-red-500 hover:text-red-400 bg-red-500/10'}`}
+                  className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${sfxEnabled ? 'text-[var(--text-success)] hover:text-[var(--text-success)] bg-[var(--text-success)]/10' : 'text-[var(--text-error)] hover:text-[var(--text-error)] bg-[var(--text-error)]/10'}`}
                   title={sfxEnabled ? "SFX On" : "SFX Off"}
                 >
                   {sfxEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                 </button>
                 <button 
                   onClick={() => setMusicEnabled(!musicEnabled)} 
-                  className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-red-500 hover:text-red-400 bg-red-500/10'}`}
+                  className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${musicEnabled ? 'text-[var(--text-success)] hover:text-[var(--text-success)] bg-[var(--text-success)]/10' : 'text-[var(--text-error)] hover:text-[var(--text-error)] bg-[var(--text-error)]/10'}`}
                   title={musicEnabled ? "Music On" : "Music Off"}
                 >
                   <Music className="w-5 h-5" />
@@ -978,7 +978,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             <div className="flex-1 relative flex flex-col">
               {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying)}
               {isWrongOrientation && (
-                <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-8 text-center">
+                <div className="absolute inset-0 z-50 bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-8 text-center">
                   <div className="text-6xl mb-6">🔄</div>
                   <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
                     {activeGame?.orientation === 'landscape' ? t.rotateLandscape : t.rotatePortrait}
@@ -1000,7 +1000,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-6"
+            className="fixed inset-0 z-[70] bg-[var(--overlay-bg)] flex items-center justify-center p-6"
             onClick={() => setShowQuitConfirm(false)}
           >
             <motion.div 
@@ -1021,7 +1021,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 </button>
                   <button 
                     onClick={() => { setShowQuitConfirm(false); setActiveGame(null); setTournamentPlayId(null); }} 
-                    className="flex-1 py-4 bg-red-600 text-[var(--text-primary)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
+                    className="flex-1 py-4 bg-[var(--text-error)] text-[var(--text-primary)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest"
                   >
                     {t.yesQuit}
                   </button>
@@ -1032,27 +1032,39 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       </AnimatePresence>
 
       {!activeGame && isMobileDevice && isLandscapeMode && (
-        <div className="fixed inset-0 z-[55] bg-black/90 flex flex-col items-center justify-center p-8 text-center">
+        <div className="fixed inset-0 z-[55] bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-8 text-center">
           <div className="text-6xl mb-6">🔄</div>
           <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{t.rotatePortrait}</h2>
           <p className="text-lg text-[var(--text-primary)]/70 max-w-xs">{t.rotatePortraitDesc}</p>
         </div>
       )}
 
-      <header className="px-3 py-1.5 flex flex-wrap justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
+      <header className="px-3 py-1.5 flex justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
           <img src="/images/logo_full.png" alt="OdesaPlay" className="h-8 w-auto" />
         </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setFamily('odesa')} className="group p-0 border-0 bg-transparent cursor-pointer">
+            <img src="/images/odesa.png" className={`w-6 h-6 transition-all rounded-sm ${family === 'odesa' ? 'ring-1 ring-[var(--btn-primary-bg)]' : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`} alt="Odesa" />
+          </button>
+          <button onClick={() => setFamily('ukraine')} className="group p-0 border-0 bg-transparent cursor-pointer">
+            <img src="/images/ukraine.png" className={`w-6 h-6 transition-all rounded-sm ${family === 'ukraine' ? 'ring-1 ring-[var(--btn-primary-bg)]' : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`} alt="Ukraine" />
+          </button>
+          <button onClick={toggleMode} className={`w-6 h-6 rounded flex items-center justify-center transition-all ${mode === 'dark' ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] opacity-50 hover:opacity-80'}`}>
+            {mode === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
             onClick={toggleMusic}
-            className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-green-500 hover:text-green-400 bg-green-500/10' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)]'}`}
+            className={`p-1.5 rounded-full transition-colors relative ${musicEnabled ? 'text-[var(--text-success)] hover:text-[var(--text-success)] bg-[var(--text-success)]/10' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)]'}`}
             title="Toggle Music"
           >
             <Music className="w-5 h-5" />
             {!musicEnabled && (
-              <svg className="absolute inset-0 w-full h-full text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="absolute inset-0 w-full h-full text-[var(--text-error)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
               </svg>
@@ -1119,13 +1131,13 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                           <div className="flex items-center gap-2">
                             <span className="text-lg">🏆</span>
                             <div>
-                              <div className="text-[10px] font-black text-green-400 uppercase tracking-widest">{t.tournament}</div>
+                              <div className="text-[10px] font-black text-[var(--text-success)] uppercase tracking-widest">{t.tournament}</div>
                               <div className="text-lg font-black text-[var(--text-primary)] leading-tight">{p.rewardType}</div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-xl font-black text-green-400 font-mono tracking-widest">{p.code}</div>
-                            <div className="text-[8px] text-green-500/70 font-black uppercase tracking-wider">{t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`)}</div>
+                            <div className="text-xl font-black text-[var(--text-success)] font-mono tracking-widest">{p.code}</div>
+                            <div className="text-[8px] text-[var(--text-success)]/70 font-black uppercase tracking-wider">{t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`)}</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-[var(--border-default)]">
@@ -1169,8 +1181,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                       )}
                       {game.comingSoon && (
                         <>
-                          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[2px]"></div>
-                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-black rounded-xl w-3/5 text-center truncate">
+                          <div className="absolute inset-0 bg-[var(--overlay-bg)] z-10 backdrop-blur-[2px]"></div>
+                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-[var(--border-default)] rounded-xl w-3/5 text-center truncate">
                             {(t as any).comingSoonBanner}
                           </div>
                         </>
@@ -1193,7 +1205,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                  <span className="text-[10px] text-[var(--text-muted)] select-all font-mono opacity-80 truncate max-w-full">http://odesaplay.com.ua?r={profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`}</span>
                  
                  <div 
-                    className="flex flex-row items-center justify-between px-4 py-2 bg-white/5 hover:bg-white/10 border border-[var(--border-strong)] rounded-full cursor-pointer transition-all active:scale-95 group"
+                    className="flex flex-row items-center justify-between px-4 py-2 bg-[var(--text-primary)]/5 hover:bg-[var(--text-primary)]/10 border border-[var(--border-strong)] rounded-full cursor-pointer transition-all active:scale-95 group"
 onClick={() => {
                          const refCode = profile.nickname ? profile.nickname.toLowerCase().replace(/\s/g, '_') : `hero_${getUserId().substring(0, 8)}`;
                          const url = `http://odesaplay.com.ua?r=${refCode}`;
@@ -1245,7 +1257,7 @@ onClick={() => {
                 >{t.allTime}</button>
                 <button 
                   onClick={() => setLeaderboardFilter('alert')} 
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${leaderboardFilter === 'alert' ? 'bg-red-600 text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${leaderboardFilter === 'alert' ? 'bg-[var(--text-error)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
                 ><AlertTriangle className="w-3 h-3" /> ALERT</button>
               </div>
             </div>
@@ -1321,7 +1333,7 @@ onClick={() => {
                <section>
                  <h2 className="text-lg font-black uppercase italic tracking-tight mb-3 flex items-center gap-2">
                    <Trophy className="w-5 h-5 text-[var(--text-accent)]" />
-                   <span className="text-[9px] font-black bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}</span>
+                   <span className="text-[9px] font-black bg-[var(--text-success)]/15 text-[var(--text-success)] px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">{activeTournaments.length} {activeTournaments.length === 1 ? t.liveTournament : t.liveTournaments}</span>
                    {t.activeTournaments}
                  </h2>
                   <div className="grid grid-cols-2 gap-3">
@@ -1395,10 +1407,10 @@ onClick={() => {
               <div className="flex gap-2">
                 {isAdmin && (
                   <>
-                    <button onClick={() => setView('admin')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-purple-400">
+                    <button onClick={() => setView('admin')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
                       <Activity className="w-5 h-5" />
                     </button>
-                    <button onClick={() => setView('sales-tool')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-amber-400">
+                    <button onClick={() => setView('sales-tool')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
                       <BarChart2 className="w-5 h-5" />
                     </button>
                   </>
@@ -1438,7 +1450,7 @@ onClick={() => {
                     <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.cityHunt}</div>
                   </div>
                   <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
-                    <div className="text-lg font-black text-emerald-400 italic">
+                    <div className="text-lg font-black text-[var(--text-success)] italic">
                       {recruitCount}
                     </div>
                     <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.recruits}</div>
@@ -1448,20 +1460,20 @@ onClick={() => {
                 {/* Streak & XP Row */}
                 <div className="grid grid-cols-2 gap-2 text-left">
                   <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl flex items-center gap-3">
-                    <Flame className={`w-6 h-6 ${streak > 0 ? 'text-orange-500' : 'text-[var(--text-subtle)]'}`} />
+                    <Flame className={`w-6 h-6 ${streak > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-subtle)]'}`} />
                     <div>
-                      <div className="text-lg font-black text-orange-400 italic">{streak} {streak === 1 ? t.day : t.days}</div>
+                      <div className="text-lg font-black text-[var(--text-accent)] italic">{streak} {streak === 1 ? t.day : t.days}</div>
                       <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none">{t.streak}</div>
                     </div>
                   </div>
                   <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="text-lg font-black text-purple-400 italic">{t.playerLevel} {getLevel(xp)}</div>
+                      <div className="text-lg font-black text-[var(--text-accent)] italic">{t.playerLevel} {getLevel(xp)}</div>
                       <div className="text-[8px] font-black text-[var(--text-muted)] uppercase">{xp} XP</div>
                     </div>
                     <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-[var(--accent-bg)] rounded-full transition-all duration-500" 
+                        className="h-full bg-gradient-to-r from-[var(--accent-bg)] to-[var(--accent-bg)] rounded-full transition-all duration-500" 
                         style={{ width: `${getXpProgress(xp)}%` }}
                       />
                     </div>
@@ -1500,10 +1512,10 @@ onClick={() => {
                             </div>
                             <div className="text-right">
                               {p.code && !redeemed && (
-                                <div className="text-lg font-black text-green-400 font-mono tracking-widest">{p.code}</div>
+                                <div className="text-lg font-black text-[var(--text-success)] font-mono tracking-widest">{p.code}</div>
                               )}
                               <div className={`text-[9px] font-black uppercase tracking-widest ${
-                                redeemed ? 'text-[var(--text-muted)]' : expired ? 'text-red-500' : 'text-green-500'
+                                redeemed ? 'text-[var(--text-muted)]' : expired ? 'text-[var(--text-error)]' : 'text-[var(--text-success)]'
                               }`}>
                                 {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : p.tournamentId ? t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`) : t.claimCode.replace('{code}', p.code || '')}
                               </div>
@@ -1584,7 +1596,7 @@ onClick={() => {
                             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[var(--accent-bg)] rounded-full animate-ping" />
                           )}
                           {unlocked && !justUnlocked && (
-                            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-400 rounded-full" />
+                            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[var(--text-success)] rounded-full" />
                           )}
                         </div>
                       );
@@ -1691,7 +1703,7 @@ onClick={() => {
                                 }
                               }
                             }}
-                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${isRequestingNotif ? 'opacity-50' : ''}`}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-[var(--text-success)]/20 text-[var(--text-success)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${isRequestingNotif ? 'opacity-50' : ''}`}
                           >
                             {enabled ? 'ON' : 'OFF'}
                           </button>
@@ -1722,20 +1734,20 @@ onClick={() => {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setAutoPlayMusic(!autoPlayMusic)}
-                          className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${autoPlayMusic ? 'text-green-400' : 'text-red-400'}`}
+                          className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${autoPlayMusic ? 'text-[var(--text-success)]' : 'text-[var(--text-error)]'}`}
                         >
                           {t.autoPlayMusic} {autoPlayMusic ? 'ON' : 'OFF'}
                         </button>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => { if (!musicEnabled) setMusicEnabled(true); prevTrack(); }} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-[var(--text-success)] text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipBack className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => { if (!musicEnabled) setMusicEnabled(true); skipTrack(); }} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-green-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-[var(--text-success)] text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                           >
                             <SkipForward className="w-4 h-4" />
                           </button>
@@ -1753,7 +1765,7 @@ onClick={() => {
                               setActiveTracks([...activeTracks, key as TrackKey]);
                             }
                           }}
-                          className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${activeTracks.includes(key as TrackKey) ? 'bg-[#0057B8] text-[var(--text-accent)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${currentTrack === key ? 'ring-2 ring-[var(--accent-bg)] ring-offset-2 ring-offset-[var(--bg-secondary)]' : ''}`}
+                          className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${activeTracks.includes(key as TrackKey) ? 'bg-[var(--btn-primary-bg)] text-[var(--text-on-accent)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${currentTrack === key ? 'ring-2 ring-[var(--accent-bg)] ring-offset-2 ring-offset-[var(--bg-secondary)]' : ''}`}
                         >
                           {(t as any).music[key] || key}
                         </button>
@@ -1797,7 +1809,7 @@ onClick={() => {
                 <div>
                   <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase block mb-2 tracking-widest">{t.cityNickname}</label>
                   <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-4 text-[var(--text-primary)] font-black italic outline-none focus:border-[var(--accent-bg)]" placeholder={t.nicknamePlaceholder} maxLength={15} />
-                  {nameError && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase">{nameError}</p>}
+                  {nameError && <p className="text-[var(--text-error)] text-[10px] mt-2 font-bold uppercase">{nameError}</p>}
                 </div>
                 <button onClick={saveProfile} className="w-full bg-[var(--btn-primary-bg)] text-[var(--text-primary)] py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-[var(--accent-bg)]/30">{t.saveProfile}</button>
               </motion.div>
@@ -1807,19 +1819,19 @@ onClick={() => {
 
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[var(--bg-primary)] via-[#0a0a0c]/90 to-transparent z-50 pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[var(--bg-primary)] via-[var(--bg-primary)]/90 to-transparent z-50 pointer-events-none">
         <nav className="max-w-[300px] mx-auto w-full pointer-events-auto">
-          <div className="bg-[var(--bg-primary)]/80 backdrop-blur-xl border-t-4 border-[#0057B8] rounded-full p-2 flex justify-between shadow-2xl">
-            <button onClick={() => setView('home')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'home' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
+          <div className="bg-[var(--bg-primary)]/80 backdrop-blur-xl border-t-4 border-[var(--accent-bg)] rounded-full p-2 flex justify-between shadow-2xl">
+            <button onClick={() => setView('home')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'home' ? 'bg-[var(--text-primary)]/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <Gamepad2 className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('leaderboard')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'leaderboard' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
+            <button onClick={() => setView('leaderboard')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'leaderboard' ? 'bg-[var(--text-primary)]/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <BarChart2 className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('venues')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'venues' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
+            <button onClick={() => setView('venues')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'venues' ? 'bg-[var(--text-primary)]/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <MapIcon className="w-6 h-6 backface-hidden" />
             </button>
-            <button onClick={() => setView('me')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'me' ? 'bg-white/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
+            <button onClick={() => setView('me')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'me' ? 'bg-[var(--text-primary)]/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <User className="w-6 h-6 backface-hidden" />
             </button>
           </div>

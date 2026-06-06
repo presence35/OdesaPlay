@@ -358,7 +358,7 @@ export default function ManagerHub() {
           <div className="w-20 h-20 bg-[var(--bg-elevated)] rounded-full mx-auto flex items-center justify-center">
             <ShieldCheck className="w-10 h-10 text-[var(--text-muted)]" />
           </div>
-          <h1 className="text-2xl font-black italic uppercase text-slate-300">Not Activated</h1>
+          <h1 className="text-2xl font-black italic uppercase text-[var(--text-muted)]">Not Activated</h1>
           <p className="text-[var(--text-muted)] text-sm font-bold uppercase tracking-wider">
             This manager card has not been linked to a restaurant yet. Contact OdesaPlay support.
           </p>
@@ -432,7 +432,7 @@ export default function ManagerHub() {
                     <button
                       onClick={() => verifyClaim(w)}
                       disabled={animatingOutIds.has(w.id!)}
-                      className="shrink-0 bg-white text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-gray-100 hover:shadow-2xl active:shadow-md transition-all shadow-xl disabled:opacity-50"
+                      className="shrink-0 bg-[var(--bg-secondary)] text-black px-6 py-4 rounded-2xl font-black text-base uppercase active:scale-95 hover:bg-[var(--bg-elevated)] hover:shadow-2xl active:shadow-md transition-all shadow-xl disabled:opacity-50"
                     >
                       {w.code}
                     </button>
@@ -469,8 +469,8 @@ export default function ManagerHub() {
                     <Gamepad2 className="w-4 h-4 text-[var(--text-accent)]" /> {t.livePlayers}
                   </h3>
                   {venueSessions.length > 0 && (
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-400 uppercase tracking-wider">
-                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-success)] uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 bg-[var(--text-success)] rounded-full animate-pulse" />
                       {venueSessions.length} now
                     </span>
                   )}
@@ -522,7 +522,7 @@ export default function ManagerHub() {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-black text-[var(--text-muted)] font-mono tracking-widest">{w.code}</div>
-                        <div className="text-[10px] text-green-600 font-black uppercase tracking-widest">{t.claimRedeemed}</div>
+                        <div className="text-[10px] text-[var(--text-success)] font-black uppercase tracking-widest">{t.claimRedeemed}</div>
                       </div>
                     </div>
                   ))
@@ -548,7 +548,7 @@ export default function ManagerHub() {
                     </h3>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
-                        <div className="text-2xl font-black text-blue-400 font-mono">{uniquePlayers}</div>
+                        <div className="text-2xl font-black text-[var(--text-info)] font-mono">{uniquePlayers}</div>
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekPlayers}</div>
                       </div>
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
@@ -556,7 +556,7 @@ export default function ManagerHub() {
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekHighScore}</div>
                       </div>
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
-                        <div className="text-2xl font-black text-emerald-400 font-mono">{avgScore}</div>
+                        <div className="text-2xl font-black text-[var(--text-success)] font-mono">{avgScore}</div>
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
                       </div>
                     </div>
@@ -565,7 +565,7 @@ export default function ManagerHub() {
               })()}
         </div>
 
-        <div className="h-px bg-gradient-to-r from-blue-500 via-yellow-400 to-transparent" />
+        <div className="h-px bg-gradient-to-r from-[var(--accent-bg)] via-[var(--accent-bg)] to-transparent" />
 
         <div className="space-y-6">
           {/* Create new tournament form */}
@@ -646,7 +646,7 @@ export default function ManagerHub() {
                   <h3 className="text-xs font-black uppercase text-[var(--text-muted)] mb-4 flex items-center gap-2 tracking-widest italic">
                     <Ticket className="w-4 h-4 text-[var(--text-accent)]" /> Winners
                   </h3>
-                  <div className="bg-gradient-to-r from-yellow-400/10 to-orange-400/5 p-4 rounded-2xl border border-[var(--border-accent)] mb-4 flex items-center justify-between">
+                  <div className="bg-gradient-to-r from-[var(--accent-subtle-bg)] to-[var(--accent-subtle-bg)] p-4 rounded-2xl border border-[var(--border-accent)] mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {(() => {
                         const g = GAME_OPTIONS.find(g => g.id === displayEndedTournament.gameId);
@@ -678,7 +678,7 @@ export default function ManagerHub() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-black text-green-400 font-mono tracking-widest">{w.claimCode}</div>
+                            <div className="text-lg font-black text-[var(--text-success)] font-mono tracking-widest">{w.claimCode}</div>
                             <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">
                               {w.claimed ? t.claimRedeemed : t.claimPending}
                             </div>
@@ -694,7 +694,7 @@ export default function ManagerHub() {
               {/* Active tournament view */}
               {activeTournament && activeTournament.status === 'active' && (
                 <>
-                  <div className="bg-gradient-to-br from-yellow-400/10 to-orange-400/5 p-6 rounded-[32px] border border-[var(--border-accent)] space-y-4">
+                  <div className="bg-gradient-to-br from-[var(--accent-subtle-bg)] to-[var(--accent-subtle-bg)] p-6 rounded-[32px] border border-[var(--border-accent)] space-y-4">
                     {(() => {
                       const g = GAME_OPTIONS.find(g => g.id === activeTournament.gameId);
                       return (
@@ -720,7 +720,7 @@ export default function ManagerHub() {
                             endTournamentEarly();
                           }
                         }}
-                        className="flex items-center gap-1 text-[10px] text-red-400/60 font-bold uppercase tracking-wider hover:text-red-400 transition-colors"
+                        className="flex items-center gap-1 text-[10px] text-[var(--text-error)]/60 font-bold uppercase tracking-wider hover:text-[var(--text-error)] transition-colors"
                       >
                         🏁 End early
                       </button>
@@ -765,7 +765,7 @@ export default function ManagerHub() {
               )}
         </div>
 
-        <div className="h-px bg-gradient-to-r from-blue-500 via-yellow-400 to-transparent" />
+        <div className="h-px bg-gradient-to-r from-[var(--accent-bg)] via-[var(--accent-bg)] to-transparent" />
 
         <div className="space-y-4">
               {(() => {
@@ -786,7 +786,7 @@ export default function ManagerHub() {
                     </h3>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
-                        <div className="text-2xl font-black text-blue-400 font-mono">{uniquePlayers}</div>
+                        <div className="text-2xl font-black text-[var(--text-info)] font-mono">{uniquePlayers}</div>
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekPlayers}</div>
                       </div>
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
@@ -794,7 +794,7 @@ export default function ManagerHub() {
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekHighScore}</div>
                       </div>
                       <div className="bg-black/40 p-3 rounded-2xl border border-[var(--border-default)] text-center">
-                        <div className="text-2xl font-black text-emerald-400 font-mono">{avgScore}</div>
+                        <div className="text-2xl font-black text-[var(--text-success)] font-mono">{avgScore}</div>
                         <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-tighter">{t.weekAvgScore}</div>
                       </div>
                     </div>

@@ -166,7 +166,7 @@ export default function SalesTool({ lang }: { lang: Language }) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 + i * 0.08 }}
-              className="bg-gradient-to-br from-slate-900 to-slate-900/50 border border-[var(--border-strong)] rounded-3xl p-6 text-center relative overflow-hidden group hover:border-slate-700 transition-colors"
+              className="bg-gradient-to-br from-[var(--bg-primary)] to-[var(--bg-primary)]/50 border border-[var(--border-strong)] rounded-3xl p-6 text-center relative overflow-hidden group hover:border-[var(--border-strong)] transition-colors"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${kpi.color} opacity-0 group-hover:opacity-5 transition-opacity rounded-3xl`} />
               <div className="flex items-center justify-center mb-3">
@@ -226,9 +226,9 @@ export default function SalesTool({ lang }: { lang: Language }) {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={scaledFunnel} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis type="category" dataKey="stage" tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v: string) => funnelLabel(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
+                <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                <YAxis type="category" dataKey="stage" tick={{ fill: 'var(--text-subtle)', fontSize: 12 }} tickFormatter={(v: string) => funnelLabel(v)} />
                 <Tooltip {...tooltipStyle} formatter={(value: number, _: string, props: any) => {
                   const pct = funnelPct(props.payload.value, props.payload.prev);
                   return [`${value.toLocaleString()} (${pct} of prev step)`, funnelLabel(props.payload.stage)];

@@ -42,9 +42,9 @@ export default function BetaBanner() {
           className="fixed top-0 left-0 right-0 z-[300] bg-[var(--accent-bg)] cursor-pointer"
           onClick={dismiss}
         >
-          <div className="flex items-center justify-between px-4 h-9 text-sm font-bold uppercase tracking-wider text-[#0057b8]">
+          <div className="flex items-center justify-between px-4 h-9 text-sm font-bold uppercase tracking-wider text-[var(--text-on-accent)]">
             <span>{t.betaBanner}</span>
-            <X size={14} className="opacity-60 text-red-500" />
+            <X size={14} className="opacity-60 text-[var(--text-on-accent)]" />
           </div>
         </motion.div>
       )}

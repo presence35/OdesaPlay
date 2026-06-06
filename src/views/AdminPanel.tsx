@@ -178,12 +178,12 @@ export default function AdminPanel({ lang }: { lang: Language }) {
         {tab === 'dashboard' && (
           <>
             {fetchError && (
-              <div className="bg-red-900/40 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div className="bg-[var(--text-error)]/10 border border-[var(--text-error)]/30 rounded-2xl p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <p className="text-sm font-bold text-red-300">{fetchError}</p>
+                  <div className="w-2 h-2 bg-[var(--text-error)] rounded-full animate-pulse" />
+                  <p className="text-sm font-bold text-[var(--text-error)]">{fetchError}</p>
                 </div>
-                <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0">
+                <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-[var(--text-error)] hover:brightness-110 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shrink-0">
                   {t.retry}
                 </button>
               </div>
@@ -195,7 +195,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
               <>
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{t.dashboard}</h2>
-                  <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-[var(--btn-primary-bg)] hover:bg-blue-500 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
+                  <button onClick={() => fetchDashboardData(selectedVenueId)} className="bg-[var(--btn-primary-bg)] hover:brightness-110 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
                     {t.refreshData}
                   </button>
                 </div>
@@ -256,7 +256,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                     rows={[...referralEvents].sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)).slice(0, 20).map(r => [
                       <span className="text-[var(--text-primary)] font-medium">{getProfileName(r.referrerId)}</span>,
                       <span className="text-[var(--text-muted)]">{getProfileName(r.visitorId)}</span>,
-                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${r.type === 'conversion' ? 'bg-green-500/20 text-green-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{r.type === 'conversion' ? t.conversion : t.click}</span>,
+                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${r.type === 'conversion' ? 'bg-[var(--text-success)]/20 text-[var(--text-success)]' : 'bg-[var(--text-info)]/20 text-[var(--text-info)]'}`}>{r.type === 'conversion' ? t.conversion : t.click}</span>,
                       <span className="text-[var(--text-subtle)] text-right text-xs">{formatDate(r.timestamp)}</span>,
                     ])}
                     emptyMessage={t.noReferrals}
@@ -290,7 +290,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{t.qrBatches}</h2>
                   <span className="text-xs text-[var(--text-muted)] font-mono">{unassignedBatches.length} {t.unassigned.toLowerCase()}</span>
                 </div>
-                <button onClick={handleGenerateBatch} className="flex items-center gap-2 bg-[var(--btn-primary-bg)] hover:bg-blue-500 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
+                <button onClick={handleGenerateBatch} className="flex items-center gap-2 bg-[var(--btn-primary-bg)] hover:brightness-110 text-[var(--text-primary)] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
                   <Plus className="w-4 h-4" /> {t.generateBatch}
                 </button>
               </div>
@@ -319,7 +319,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                           <td className="p-3 font-mono text-xs text-[var(--text-subtle)]">{shortAlias || '—'}</td>
                           <td className="p-3">
                             {b.venueId ? (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold uppercase tracking-wider">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-[var(--text-success)]/20 text-[var(--text-success)] rounded-full text-xs font-bold uppercase tracking-wider">
                                 {t.batchAssigned} {assignedVenue ? assignedVenue.short?.en || assignedVenue.name?.en : b.venueId}
                               </span>
                             ) : (
@@ -371,7 +371,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                   <span className="text-xs text-[var(--text-muted)] font-mono">{venues.length} {t.total}</span>
                 </div>
                 <button onClick={() => { setForm(emptyForm); setEditVenueId(null); setShowForm(true); }}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
+                  className="flex items-center gap-2 bg-[var(--text-success)] hover:brightness-110 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors">
                   <Plus className="w-4 h-4" /> {t.addVenue}
                 </button>
               </div>
@@ -398,9 +398,9 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                           <td className="p-4 text-[var(--text-primary)]">{v.name?.en}</td>
                           <td className="p-4">
                             {v.disabled ? (
-                              <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold uppercase tracking-wider">{t.disabled}</span>
+                              <span className="px-2 py-1 bg-[var(--text-error)]/20 text-[var(--text-error)] rounded-full text-xs font-bold uppercase tracking-wider">{t.disabled}</span>
                             ) : (
-                              <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold uppercase tracking-wider">{t.active}</span>
+                              <span className="px-2 py-1 bg-[var(--text-success)]/20 text-[var(--text-success)] rounded-full text-xs font-bold uppercase tracking-wider">{t.active}</span>
                             )}
                           </td>
                           <td className="p-4 font-mono text-xs text-cyan-400">
@@ -417,7 +417,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                                 </button>
                               )}
                               <button onClick={() => handleToggleDisable(v)} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg transition-colors" title={v.disabled ? t.enableVenue : t.disableVenue}>
-                                {v.disabled ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4 text-red-400" />}
+                                {v.disabled ? <ToggleRight className="w-4 h-4 text-[var(--text-success)]" /> : <ToggleLeft className="w-4 h-4 text-[var(--text-error)]" />}
                               </button>
                             </div>
                           </td>
@@ -498,7 +498,7 @@ export default function AdminPanel({ lang }: { lang: Language }) {
                 </div>
               </div>
               <button onClick={handleSaveVenue} disabled={saving || !form.nameEn || !form.nameUk}
-                className="w-full bg-[var(--btn-primary-bg)] hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors mt-2">
+                className="w-full bg-[var(--btn-primary-bg)] hover:brightness-110 disabled:opacity-50 text-[var(--text-primary)] py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors mt-2">
                 {saving ? t.saving : (editVenueId ? t.updateVenue : t.createVenue)}
               </button>
             </div>
@@ -565,25 +565,25 @@ function AirRaidMonitor() {
 
   return (
     <div className={`border rounded-3xl p-5 mb-6 transition-colors ${
-      state === 'active' ? 'bg-red-900/30 border-red-500/40' :
-      state === 'error' ? 'bg-yellow-900/30 border-yellow-500/40' :
+      state === 'active' ? 'bg-[var(--text-error)]/10 border-[var(--text-error)]/30' :
+      state === 'error' ? 'bg-[var(--accent-bg)]/10 border-[var(--accent-bg)]/30' :
       'bg-[var(--bg-secondary)]/50 border-[var(--border-default)]'
     }`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className={`w-4 h-4 rounded-full ${
-            state === 'active' ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse' :
-            state === 'error' ? 'bg-yellow-500' :
-            state === 'clear' ? 'bg-emerald-500' :
-            'bg-slate-600'
+            state === 'active' ? 'bg-[var(--text-error)] shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse' :
+            state === 'error' ? 'bg-[var(--accent-bg)]' :
+            state === 'clear' ? 'bg-[var(--text-success)]' :
+            'bg-[var(--text-muted)]'
           }`} />
           <div>
             <div className="flex items-center gap-3">
               <h3 className="text-lg font-black uppercase tracking-wider">Odesa Air Raid</h3>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                state === 'active' ? 'bg-red-500/20 text-red-400' :
-                state === 'error' ? 'bg-yellow-500/20 text-[var(--text-accent)]' :
-                state === 'clear' ? 'bg-emerald-500/20 text-emerald-400' :
+                state === 'active' ? 'bg-[var(--text-error)]/20 text-[var(--text-error)]' :
+                state === 'error' ? 'bg-[var(--accent-bg)]/20 text-[var(--text-accent)]' :
+                state === 'clear' ? 'bg-[var(--text-success)]/20 text-[var(--text-success)]' :
                 'bg-[var(--bg-elevated)] text-[var(--text-subtle)]'
               }`}>
                 {state === 'active' ? 'ACTIVE' : state === 'clear' ? 'CLEAR' : state === 'error' ? 'ERROR' : '...'}
@@ -597,7 +597,7 @@ function AirRaidMonitor() {
         {state === 'active' && alerts.length > 0 && (
           <div className="flex items-center gap-2">
             {alerts.map((a: any, i: number) => (
-              <span key={i} className="px-2 py-1 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-wider">
+              <span key={i} className="px-2 py-1 bg-[var(--text-error)]/20 text-[var(--text-error)] rounded-lg text-xs font-bold uppercase tracking-wider">
                 {a.type}
               </span>
             ))}
@@ -629,8 +629,8 @@ function DashboardTable({ title, icon, live, headers, rows, emptyMessage, wide }
         {icon}
         <h2 className="text-lg font-bold text-[var(--text-primary)] uppercase tracking-wider">{title}</h2>
         {live !== undefined && live > 0 && (
-          <span className="ml-auto inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold uppercase tracking-wider">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />{live} live
+          <span className="ml-auto inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--text-success)]/20 text-[var(--text-success)] rounded-full text-xs font-bold uppercase tracking-wider">
+            <span className="w-2 h-2 bg-[var(--text-success)] rounded-full animate-pulse" />{live} live
           </span>
         )}
       </div>
