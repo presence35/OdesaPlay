@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
-  Zap, X, Lock, Gamepad2, Map as MapIcon, User, Pencil,
-  Volume2, VolumeX, Share2, Mail, Send, Music, SkipForward, SkipBack, Sun, Moon,
-   Trophy, Flame, Star, Award, Target, Calendar, Bell, BellOff, AlertTriangle, Users,
-   Globe, Palette
+  Zap, Lock, Gamepad2, Map as MapIcon, User,
+  Volume2, VolumeX, Share2, Mail, Send, Music, Sun, Moon,
+  Trophy, Star, Target, Calendar, AlertTriangle, Users,
+  Globe, Palette, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -27,17 +27,21 @@ import { useFullscreenOnRotate } from '../utils/fullscreen';
 import { useVenues, useActiveTournaments, useTournamentLeaderboard } from '../data/restaurants';
 import { showToast } from '../components/Toast';
 
-const TreasureHuntMap = lazy(() => import('../components/TreasureHuntMap'));
-const AdminPanel = lazy(() => import('../views/AdminPanel'));
-const SalesTool = lazy(() => import('../views/SalesTool'));
+import TreasureHuntMap from '../components/TreasureHuntMap';
+import SalesTool from '../views/SalesTool';
+import AdminPanel from '../views/AdminPanel';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CheckInPrompt from '../components/CheckInPrompt';
+import { EASTER_EGG_DEFINITIONS, useEggFindings } from './gamehub/easterEggs';
 import LanguageThemeCard from '../components/LanguageThemeCard';
 import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
-import { handleFirestoreError, transliterate, shareScore, getTier, triggerHaptic, calculatePlayerStats, getLevel, getXpForCurrentLevel, getXpForNextLevel, getXpProgress, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
+import { handleFirestoreError, transliterate, getTier, triggerHaptic, calculatePlayerStats, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
 import { useTheme } from '../contexts/ThemeContext';
-const AVATARS = ["⚓", "🛸", "⚔️", "🥟", "🥨", "🐈", "🍉", "🎖️"];
+import ProfileTab from './profile/ProfileTab';
+import PrizesTab from './profile/PrizesTab';
+import SettingsTab from './profile/SettingsTab';
 
 function Media({ src, imgClass, textClass }: { src: string; imgClass?: string; textClass?: string }) {
   if (src.startsWith('/') || src.startsWith('.')) {
@@ -102,6 +106,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     initialView === 'sales-tool' ? 'sales-tool' :
     initialView as 'home' | 'venues' | 'me' | 'leaderboard'
   );
+  const [profileView, setProfileView] = useState<'profile' | 'prizes' | 'settings'>('profile');
   const { venues: RESTAURANTS } = useVenues();
   const [venueId, setVenueId] = useState('central_cafe');
   const [gamesList, setGamesList] = useState<Game[]>([]);
@@ -129,6 +134,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
   const [prevScores, setPrevScores] = useState<Record<string, number>>({});
   const [recruitCount, setRecruitCount] = useState(0);
+  const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
+  const { findings: eggFindings } = useEggFindings();
+  const [gameNotifications, setGameNotifications] = useState<Set<string>>(new Set());
   const [dataLoaded, setDataLoaded] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     droneAlerts: false, gameReminders: false, venueSpecials: false, tournamentLaunches: false
@@ -422,6 +430,12 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     );
 
     const cutoffDate = new Date(Date.now() - 7 * 86400000);
+    const unsubNotif = onSnapshot(
+      query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'gameNotifications'), where('uid', '==', user.uid)),
+      snap => setGameNotifications(new Set(snap.docs.map(d => d.data().gameId))),
+      () => {}
+    );
+
     const unsub6 = onSnapshot(
       query(
         collection(db, 'artifacts', APP_ID, 'public', 'data', 'claims'),
@@ -437,15 +451,48 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       error => console.warn('player prizes listener error:', error)
     );
     
-    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsub6(); };
+    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsubNotif(); unsub6(); };
   }, [user, venueId]);
+
+  // Check-in prompt logic
+  const totalPlays = userLeaderboards.reduce((acc, r) => acc + (r.playCount || 1), 0);
+  useEffect(() => {
+    if (showCheckInPrompt) return;
+    const stored = localStorage.getItem('odesa_checkins');
+    if (stored && stored !== '{}') return;
+    if (totalPlays < 3) return;
+    const lastPrompted = parseInt(localStorage.getItem('odesa_checkin_prompted_at') || '0', 10);
+    if (totalPlays - lastPrompted < 3) return;
+    setShowCheckInPrompt(true);
+    localStorage.setItem('odesa_checkin_prompted_at', String(totalPlays));
+  }, [totalPlays, showCheckInPrompt]);
+
+  const handleCheckIn = async (venueId: string) => {
+    if (!user) return;
+    const uid = user.uid;
+    const date = new Date().toISOString().slice(0, 10);
+    const docId = `${uid}_${venueId}_${date}`;
+    await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'checkins', docId), {
+      userId: uid, restaurantId: venueId, mode: 'casual', timestamp: serverTimestamp(), gameScores: []
+    }).catch(console.error);
+    const stored = JSON.parse(localStorage.getItem('odesa_checkins') || '{}');
+    stored[venueId] = { ts: new Date().toISOString(), mode: 'casual' };
+    localStorage.setItem('odesa_checkins', JSON.stringify(stored));
+    const newXp = xp + XP_REWARDS.checkin;
+    await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'playerProgress', uid), {
+      achievements, streak, xp: newXp, prevScores, updatedAt: serverTimestamp()
+    }, { merge: true }).catch(console.error);
+    setXp(newXp);
+    setShowCheckInPrompt(false);
+    showToast(t.checkinXpEarned);
+  };
 
     // Sync config with iframe when settings change
     // TODO: Convert remaining alert() calls to toast notifications
     useEffect(() => {
       // Update global Odesa mock
       if ((window as any).Odesa && (window as any).Odesa._triggerConfig) {
-        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, credits: 100 });
+        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), credits: 100 });
       }
     }, [lang, sfxEnabled, musicEnabled, activeGame]);
 
@@ -484,6 +531,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         }
       } else if (e.data?.type === 'ODESAPLAY_RESTART') {
         setActiveGame(null);
+      } else if (e.data?.type === 'ODESAPLAY_EGG_FOUND') {
+        handleEggFound(e.data.eggId);
       } else if (e.data?.type === 'ODESAPLAY_SCORE' || e.data?.type === 'win' || e.data?.type === 'gameOver') {
         setGamePlaying(false);
         setGameActive(false);
@@ -787,6 +836,32 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   };
 
 
+    const toggleNotify = async (gameId: string) => {
+    if (!user) return;
+    const uid = user.uid;
+    const docId = `${uid}_${gameId}`;
+    const ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'gameNotifications', docId);
+    if (gameNotifications.has(gameId)) {
+      await deleteDoc(ref).catch(console.error);
+    } else {
+      await setDoc(ref, { uid, gameId, createdAt: serverTimestamp() }).catch(console.error);
+    }
+  };
+
+  const handleEggFound = async (eggId: string) => {
+    const eggDef = EASTER_EGG_DEFINITIONS.find(e => e.id === eggId);
+    if (!eggDef) return;
+    const uid = getUserId();
+    const docId = `${uid}_${eggId}`;
+    try {
+      await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'easterEggFindings', docId), {
+        uid, eggId, foundAt: serverTimestamp()
+      });
+      showToast(`🥚 ${eggDef.name[lang]} ${t.eggFoundToast}`);
+      triggerHaptic([100, 50, 100]);
+    } catch {}
+  };
+
   const handleWin = async (game: Game | undefined, score: number, tier: number) => {
     if (!user) return;
     const code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -1076,6 +1151,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       <main className={`px-5 py-5 pt-14 sm:pt-14 ${view === 'admin' ? 'max-w-full' : 'max-w-lg mx-auto'}`}>
         {view === 'home' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            <AnimatePresence>
+              {showCheckInPrompt && (
+                <CheckInPrompt venues={RESTAURANTS} lang={lang} onCheckin={handleCheckIn} onDismiss={() => setShowCheckInPrompt(false)} />
+              )}
+            </AnimatePresence>
             {showSetup && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1181,9 +1261,21 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                       )}
                       {game.comingSoon && (
                         <>
-                          <div className="absolute inset-0 bg-[var(--overlay-bg)] z-10 backdrop-blur-[2px]"></div>
-                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-[var(--border-default)] rounded-xl w-3/5 text-center truncate">
-                            {(t as any).comingSoonBanner}
+                          <div className="absolute inset-0 bg-black/40 z-10 backdrop-blur-[2px]"></div>
+                          <div className="absolute bottom-0 inset-x-0 z-20 p-3 flex flex-col gap-2">
+                            <div className="bg-[var(--accent-bg)] text-[var(--text-on-accent)] px-4 py-1.5 font-black italic uppercase text-sm tracking-widest shadow-2xl border-2 border-black rounded-xl text-center truncate">
+                              {(t as any).comingSoonBanner}
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleNotify(game.id); }}
+                              className={`w-full py-2 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg border transition-all active:scale-95 ${
+                                gameNotifications.has(game.id)
+                                  ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                  : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/20'
+                              }`}
+                            >
+                              {gameNotifications.has(game.id) ? '🔔 ' + (t as any).notifyOn : '🔔 ' + (t as any).notifyOff}
+                            </button>
                           </div>
                         </>
                       )}
@@ -1386,433 +1478,112 @@ onClick={() => {
              )}
 
              <h2 className="text-2xl font-black uppercase italic tracking-tight mb-2">{t.cityHunt}</h2>
-             <Suspense fallback={<LoadingSpinner icon={MapIcon} />}><TreasureHuntMap venues={RESTAURANTS} pendingCheckIn={location.state?.pendingCheckIn} lang={lang} /></Suspense>
+              <TreasureHuntMap venues={RESTAURANTS} pendingCheckIn={location.state?.pendingCheckIn} lang={lang} />
           </motion.div>
         )}
         
         {view === 'admin' && (
           <div className="max-w-6xl mx-auto">
-            <Suspense fallback={null}><AdminPanel lang={lang} /></Suspense>
+            <AdminPanel lang={lang} />
           </div>
         )}
 
         {view === 'sales-tool' && (
-          <Suspense fallback={null}><SalesTool lang={lang} /></Suspense>
+          <SalesTool lang={lang} />
         )}
 
         {view === 'me' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black uppercase italic tracking-tight">{t.profile}</h2>
-              <div className="flex gap-2">
-                {isAdmin && (
-                  <>
-                    <button onClick={() => setView('admin')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                      <Activity className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => setView('sales-tool')} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                      <BarChart2 className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-                <button onClick={() => setIsEditing(!isEditing)} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                  {isEditing ? <X className="w-5 h-5" /> : <Pencil className="w-5 h-5" />}
-                </button>
-              </div>
+            {/* Pill-style sub-tab bar */}
+            <div className="flex gap-1 bg-[var(--bg-secondary)] p-1 rounded-xl">
+              <button
+                onClick={() => setProfileView('profile')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-1.5 ${profileView === 'profile' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                <User className="w-3.5 h-3.5" /> {t.profileTab}
+              </button>
+              <button
+                onClick={() => setProfileView('prizes')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-1.5 ${profileView === 'prizes' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                <Ticket className="w-3.5 h-3.5" /> {t.myPrizes}
+              </button>
+              <button
+                onClick={() => setProfileView('settings')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-1.5 ${profileView === 'settings' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                <Settings className="w-3.5 h-3.5" /> {t.settingsTab}
+              </button>
             </div>
-            
-            {!isEditing ? (
-              <div className="text-center py-6 space-y-6">
-                <div 
-                  className="w-24 h-24 bg-gradient-to-tr from-[var(--btn-primary-bg)] to-[var(--accent-bg)] rounded-full mx-auto p-1 shadow-2xl cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <div className="w-full h-full bg-[var(--bg-primary)] rounded-full flex items-center justify-center"><Media src={profile.avatar} imgClass="w-10 h-10" textClass="text-4xl" /></div>
-                </div>
-                <div 
-                  className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-[var(--text-accent)]">{profile.nickname || `HERO_${getUserId().substring(0,8)}`}</h3>
-                  <p className="text-[var(--text-muted)] font-bold text-[10px] uppercase tracking-widest mt-1">{t.rank}</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-left">
-                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
-                    <div className="text-lg font-black text-[var(--text-accent)] italic">
-                      {userLeaderboards.reduce((acc, curr) => acc + (curr.playCount || 1), 0)}
-                    </div>
-                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.gamesPlayed}</div>
-                  </div>
-                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
-                    <div className="text-lg font-black text-[var(--text-accent)] italic">
-                      {(() => { try { return Object.keys(JSON.parse(localStorage.getItem('odesa_checkins') || '{}')).length; } catch { return 0; }})()}
-                    </div>
-                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.cityHunt}</div>
-                  </div>
-                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
-                    <div className="text-lg font-black text-[var(--text-success)] italic">
-                      {recruitCount}
-                    </div>
-                    <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none mt-1.5">{t.recruits}</div>
-                  </div>
-                </div>
 
-                {/* Streak & XP Row */}
-                <div className="grid grid-cols-2 gap-2 text-left">
-                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl flex items-center gap-3">
-                    <Flame className={`w-6 h-6 ${streak > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-subtle)]'}`} />
-                    <div>
-                      <div className="text-lg font-black text-[var(--text-accent)] italic">{streak} {streak === 1 ? t.day : t.days}</div>
-                      <div className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter leading-none">{t.streak}</div>
-                    </div>
-                  </div>
-                  <div className="bg-[var(--bg-secondary)]/50 p-3 rounded-3xl border border-[var(--border-default)] shadow-xl">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-lg font-black text-[var(--text-accent)] italic">{t.playerLevel} {getLevel(xp)}</div>
-                      <div className="text-[8px] font-black text-[var(--text-muted)] uppercase">{xp} XP</div>
-                    </div>
-                    <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[var(--accent-bg)] to-[var(--accent-bg)] rounded-full transition-all duration-500" 
-                        style={{ width: `${getXpProgress(xp)}%` }}
-                      />
-                    </div>
-                    <div className="text-[8px] font-black text-[var(--text-muted)] tracking-tighter leading-none mt-1">{getXpForNextLevel(xp) - xp} {t.xpToNext}</div>
-                  </div>
-                </div>
+            {profileView === 'profile' && (
+              <ProfileTab
+                user={user}
+                profile={profile}
+                t={t}
+                lang={lang}
+                isAdmin={isAdmin}
+                isEditing={isEditing}
+                editName={editName}
+                editAvatar={editAvatar}
+                nameError={nameError}
+                setIsEditing={setIsEditing}
+                setEditName={setEditName}
+                setEditAvatar={setEditAvatar}
+                setNameError={setNameError}
+                saveProfile={saveProfile}
+                getUserId={getUserId}
+                onNavigateAdmin={() => setView('admin')}
+                onNavigateSales={() => setView('sales-tool')}
+                userLeaderboards={userLeaderboards}
+                leaderboards={leaderboards}
+                gamesList={gamesList}
+                achievements={achievements}
+                streak={streak}
+                xp={xp}
+                recruitCount={recruitCount}
+                eggFindings={eggFindings}
+                selectedBadge={selectedBadge}
+                newlyUnlockedBadges={newlyUnlockedBadges}
+                onSelectBadge={setSelectedBadge}
+              />
+            )}
 
+            {profileView === 'prizes' && (
+              <PrizesTab
+                t={t}
+                lang={lang}
+                gamesList={gamesList}
+                playerPrizes={playerPrizes}
+                hasMorePrizes={hasMorePrizes}
+                loadingMorePrizes={loadingMorePrizes}
+                onLoadMorePrizes={loadMorePrizes}
+                RESTAURANTS={RESTAURANTS}
+              />
+            )}
 
-
-                {/* My Prizes */}
-                  <div className="mt-8 text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-[var(--text-accent)]" /> {t.myPrizes}{playerPrizes.length > 0 && <span className="text-[var(--text-muted)] ml-1">({playerPrizes.filter(p => !p.redeemed && p.expiresAt > Date.now()).length}/{playerPrizes.length})</span>}
-                    </h3>
-                    {playerPrizes.length === 0 ? (
-                      <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noPrizes}</div>
-                    ) : (
-                    <>
-                    <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-                      {[...playerPrizes].sort((a: any, b: any) => {
-                        const ta = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || 0);
-                        const tb = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
-                        return tb - ta;
-                      }).map(p => {
-                        const expired = p.expiresAt < Date.now();
-                        const redeemed = p.redeemed;
-                        const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
-                        const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
-                        const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
-                        return (
-                          <div key={p.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex items-center justify-between">
-                            <div>
-                              <div className="text-sm font-black text-[var(--text-accent)]">{p.rewardType}</div>
-                              <div className="text-[10px] text-[var(--text-subtle)] font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{p.gameTitle} • {p.score} {p.score === 1 ? 'pt' : 'pts'}</div>
-                              <div className="text-[9px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
-                            </div>
-                            <div className="text-right">
-                              {p.code && !redeemed && (
-                                <div className="text-lg font-black text-[var(--text-success)] font-mono tracking-widest">{p.code}</div>
-                              )}
-                              <div className={`text-[9px] font-black uppercase tracking-widest ${
-                                redeemed ? 'text-[var(--text-muted)]' : expired ? 'text-[var(--text-error)]' : 'text-[var(--text-success)]'
-                              }`}>
-                                {redeemed ? t.claimRedeemed : expired ? `${t.claimExpired} ${getTimeAgo(p.timestamp, lang)}` : p.tournamentId ? t.expiresInHours.replace('{h}', `${Math.max(1, Math.ceil((p.expiresAt - Date.now()) / 3600000))}`) : t.claimCode.replace('{code}', p.code || '')}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {hasMorePrizes && (
-                      <button
-                        onClick={loadMorePrizes}
-                        disabled={loadingMorePrizes}
-                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-subtle)] hover:text-[var(--text-primary)] transition-colors bg-[var(--bg-secondary)]/30 rounded-xl border border-[var(--border-default)] disabled:opacity-50"
-                      >
-                        {loadingMorePrizes ? 'Loading...' : t.loadAll}
-                      </button>
-                    )}
-                    </>
-                    )}
-                  </div>
-
-                {/* Profile High Scores */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-[var(--text-accent)]" /> {t.highScores}</h3>
-                  {userLeaderboards.map(r => {
-                    const game = gamesList.find(g => g.id === r.gameId);
-                    if (!game) return null;
-                    const allGameRecords = leaderboards.filter(l => l.gameId === game.id).sort((a, b) => b.score - a.score);
-                    const rank = allGameRecords.findIndex(l => l.uid === getUserId()) + 1;
-                    const totalPlayers = allGameRecords.length;
-                    
-                    return (
-                      <div key={r.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex justify-between items-center shadow-xl">
-                        <div className="flex flex-col">
-                          <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5 text-[var(--text-primary)]">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
-                          <span className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mt-1">
-                            {getTimeAgo(r.timestamp, lang)} • {r.playCount || 1} PLAYS • RANK: {rank}/{totalPlayers}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-[var(--text-accent)] italic font-mono">{r.score}</span>
-                          <button onClick={() => shareScore(game, r.score, lang, profile)} className="text-[var(--text-subtle)] hover:text-[var(--text-accent)] transition-colors p-1" title={t.share}>
-                            <Share2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {userLeaderboards.length === 0 && (
-                     <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noEntries}</div>
-                  )}
-                </div>
-
-                {/* Badges */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[var(--text-accent)]" /> {t.badges}
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {BADGE_DEFINITIONS.map(badge => {
-                      const unlocked = !!achievements[badge.id];
-                      const justUnlocked = newlyUnlockedBadges.includes(badge.id);
-                      return (
-                        <div 
-                          key={badge.id} 
-                          onClick={() => setSelectedBadge(badge.id)}
-                          className={`rounded-lg flex items-center justify-center p-1 transition-all cursor-pointer ${
-                            unlocked 
-                              ? justUnlocked 
-                                ? 'bg-[var(--accent-bg)]/20 border-2 border-[var(--accent-bg)] animate-pulse' 
-                                : selectedBadge === badge.id ? 'bg-[var(--bg-elevated)]/80 border-2 border-[var(--border-strong)]' : 'bg-[var(--bg-elevated)]/80 border-2 border-[var(--border-strong)]' 
-                              : 'bg-[var(--bg-secondary)]/30 border-2 border-[var(--border-default)] opacity-40'
-                          }`}
-                        >
-                          <Media src={badge.icon} imgClass={`w-4 h-4 ${unlocked ? '' : 'grayscale'}`} textClass={`text-base ${unlocked ? '' : 'grayscale'}`} />
-                          {justUnlocked && (
-                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[var(--accent-bg)] rounded-full animate-ping" />
-                          )}
-                          {unlocked && !justUnlocked && (
-                            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[var(--text-success)] rounded-full" />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {Object.keys(achievements).length === 0 && (
-                    <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.noBadges}</div>
-                  )}
-                  {(() => {
-                    if (!selectedBadge) {
-                      return (
-                        <div className="w-full bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)] p-5 text-center">
-                          <span className="text-xs text-[var(--text-muted)] uppercase font-bold tracking-widest">Tap a badge to learn more</span>
-                        </div>
-                      );
-                    }
-                    const badgeDef = BADGE_DEFINITIONS.find(b => b.id === selectedBadge);
-                    if (!badgeDef) return null;
-                    const unlocked = !!achievements[selectedBadge];
-                    const badgeLabel = (t as any).badge[selectedBadge];
-                    return (
-                      <div className="w-full bg-[var(--bg-elevated)]/80 rounded-2xl border border-[var(--border-strong)] p-4 text-left space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Media src={badgeDef.icon} imgClass="w-4 h-4" textClass="text-base" />
-                          <span className="text-sm font-black uppercase text-[var(--text-primary)] tracking-wider">{badgeLabel?.name || selectedBadge}</span>
-                        </div>
-                        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">{badgeLabel?.desc || ''}</p>
-                        {unlocked ? (
-                          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
-                            {(() => { const d = Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000); return `Awarded ${d} ${d === 1 ? 'day' : 'days'} ago`; })()}
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-[var(--text-subtle)] uppercase tracking-wider font-bold">Not yet unlocked</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Notification Settings */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-[var(--text-accent)]" /> {t.notifications}</h3>
-                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
-                    {([
-                      { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },
-                      { key: 'gameReminders', label: t.gameReminders, desc: t.gameRemindersDesc },
-                      { key: 'venueSpecials', label: t.venueSpecials, desc: t.venueSpecialsDesc },
-                      { key: 'tournamentLaunches', label: t.tournamentLaunches, desc: t.tournamentLaunchesDesc },
-                    ] as const).map(({ key, label, desc }) => {
-                      const enabled = notificationPrefs[key];
-                      return (
-                        <div key={key} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Bell className={`w-4 h-4 ${enabled ? 'text-[var(--text-accent)]' : 'text-[var(--text-subtle)]'}`} />
-                            <div>
-                              <div className="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">{label}</div>
-                              <div className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-wider">{desc}</div>
-                            </div>
-                          </div>
-                          <button
-                            disabled={isRequestingNotif}
-                            onClick={async () => {
-                              const newPrefs = { ...notificationPrefs, [key]: !enabled };
-                              if (newPrefs[key] && !newPrefs.fcmToken) {
-                                setIsRequestingNotif(true);
-                                try {
-                                  const token = await requestFcmToken();
-                                  if (!token) {
-                                    showToast('Notification permission denied');
-                                    setIsRequestingNotif(false);
-                                    return;
-                                  }
-                                  newPrefs.fcmToken = token;
-                                  newPrefs.fcmTokenUpdatedAt = Date.now();
-                                } catch (e) {
-                                  showToast('Notification error: ' + (e instanceof Error ? e.message : 'unknown'));
-                                  setIsRequestingNotif(false);
-                                  return;
-                                }
-                                setIsRequestingNotif(false);
-                              }
-                              setNotificationPrefs(newPrefs);
-                              if (user) {
-                                setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'profiles', user.uid), {
-                                  notifications: newPrefs,
-                                  updatedAt: serverTimestamp()
-                                }, { merge: true }).catch(console.error);
-                              }
-                              if (newPrefs.fcmToken && user) {
-                                const TOPIC_MAP: Record<string, string> = {
-                                  droneAlerts: 'odesa_alerts',
-                                  gameReminders: 'game_reminders',
-                                  tournamentLaunches: 'tournament_launches',
-                                };
-                                const topic = TOPIC_MAP[key];
-                                if (topic) {
-                                  syncNotificationSubscriptions(
-                                    newPrefs.fcmToken,
-                                    user.uid,
-                                    newPrefs[key] ? [topic] : [],
-                                    newPrefs[key] ? [] : [topic]
-                                  );
-                                }
-                              }
-                            }}
-                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${enabled ? 'bg-[var(--text-success)]/20 text-[var(--text-success)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${isRequestingNotif ? 'opacity-50' : ''}`}
-                          >
-                            {enabled ? 'ON' : 'OFF'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Music Settings */}
-                <div className="mt-8 text-left space-y-4">
-                  <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                    <Music className="w-4 h-4 text-[var(--text-accent)]" /> {t.musicSettings}</h3>
-                  <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Volume2 className="w-4 h-4 text-[var(--text-subtle)]" />
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="1" 
-                          step="0.1"
-                          value={volume}
-                          onChange={(e) => setVolume(parseFloat(e.target.value))}
-                          className="w-20 h-1.5 bg-[var(--bg-elevated)] rounded-lg appearance-none cursor-pointer accent-[var(--text-accent)]"
-                        />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setAutoPlayMusic(!autoPlayMusic)}
-                          className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${autoPlayMusic ? 'text-[var(--text-success)]' : 'text-[var(--text-error)]'}`}
-                        >
-                          {t.autoPlayMusic} {autoPlayMusic ? 'ON' : 'OFF'}
-                        </button>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => { if (!musicEnabled) setMusicEnabled(true); prevTrack(); }} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-[var(--text-success)] text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
-                          >
-                            <SkipBack className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => { if (!musicEnabled) setMusicEnabled(true); skipTrack(); }} 
-                            className={`p-2 rounded-full flex items-center justify-center active:scale-90 transition-transform ${musicEnabled ? 'bg-[var(--text-success)] text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
-                          >
-                            <SkipForward className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {trackOrder.map(key => (
-                        <button
-                          key={key}
-                          onClick={() => {
-                            if (activeTracks.includes(key as TrackKey)) {
-                              setActiveTracks(activeTracks.filter(t => t !== key));
-                            } else {
-                              setActiveTracks([...activeTracks, key as TrackKey]);
-                            }
-                          }}
-                          className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${activeTracks.includes(key as TrackKey) ? 'bg-[var(--btn-primary-bg)] text-[var(--text-on-accent)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'} ${currentTrack === key ? 'ring-2 ring-[var(--accent-bg)] ring-offset-2 ring-offset-[var(--bg-secondary)]' : ''}`}
-                        >
-                          {(t as any).music[key] || key}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Language & Theme Settings */}
-                <div className="mt-8 grid grid-cols-2 gap-4">
-                  <div className="text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeLanguageInverse}
-                    </h3>
-                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
-                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="language" />
-                    </div>
-                  </div>
-                  <div className="text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
-                    </h3>
-                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
-                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="theme" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--bg-secondary)]/50 p-6 rounded-3xl border border-[var(--border-default)] space-y-6">
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase block mb-3 tracking-widest">{t.chooseHero}</label>
-                  <div className="grid grid-cols-4 gap-4">
-                    {AVATARS.map(a => (
-                      <div key={a} onClick={() => setEditAvatar(a)} className={`h-12 flex items-center justify-center rounded-2xl cursor-pointer transition-transform hover:scale-110 ${editAvatar === a ? 'border-2 border-[var(--accent-bg)] bg-[var(--accent-bg)]/10' : 'bg-[var(--bg-elevated)]/40'}`}>
-                        <Media src={a} imgClass="w-7 h-7" textClass="text-2xl" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase block mb-2 tracking-widest">{t.cityNickname}</label>
-                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-xl p-4 text-[var(--text-primary)] font-black italic outline-none focus:border-[var(--accent-bg)]" placeholder={t.nicknamePlaceholder} maxLength={15} />
-                  {nameError && <p className="text-[var(--text-error)] text-[10px] mt-2 font-bold uppercase">{nameError}</p>}
-                </div>
-                <button onClick={saveProfile} className="w-full bg-[var(--btn-primary-bg)] text-[var(--text-primary)] py-4 rounded-xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-[var(--accent-bg)]/30">{t.saveProfile}</button>
-              </motion.div>
+            {profileView === 'settings' && (
+              <SettingsTab
+                t={t}
+                lang={lang}
+                user={user}
+                notificationPrefs={notificationPrefs}
+                isRequestingNotif={isRequestingNotif}
+                volume={volume}
+                autoPlayMusic={autoPlayMusic}
+                musicEnabled={musicEnabled}
+                activeTracks={activeTracks}
+                currentTrack={currentTrack}
+                trackOrder={trackOrder}
+                onLangChange={pickLang}
+                onNotificationPrefsChange={setNotificationPrefs}
+                onVolumeChange={setVolume}
+                onAutoPlayMusicChange={setAutoPlayMusic}
+                onMusicEnabledChange={setMusicEnabled}
+                onActiveTracksChange={setActiveTracks}
+                onSkipTrack={skipTrack}
+                onPrevTrack={prevTrack}
+              />
             )}
           </motion.div>
         )}

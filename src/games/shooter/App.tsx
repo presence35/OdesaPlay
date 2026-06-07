@@ -34,7 +34,7 @@ export default function App() {
   const stateRef = useRef<GameState>(gameState);
   const mouseRef = useRef({ x: 0, y: 0 });
   
-  const isPaidUser = true; // Unlocked for testing!
+  const [peace, setPeace] = useState(false);
   const [started, setStarted] = useState(false);
   const startedRef = useRef(false);
   const recoveringRef = useRef(false);
@@ -88,6 +88,7 @@ export default function App() {
       const config = window.Odesa.getConfig();
       if (config) {
         setLang(config.lang === 'uk' ? 'uk' : 'en');
+        setPeace(config.peace === true);
         if (typeof config.sfxEnabled === 'boolean') {
           sounds.setSfxEnabled(config.sfxEnabled);
         }
@@ -96,6 +97,7 @@ export default function App() {
     if (window.Odesa?.onConfig) {
       window.Odesa.onConfig((config: any) => {
         setLang(config.lang === 'uk' ? 'uk' : 'en');
+        setPeace(config.peace === true);
         if (typeof config.sfxEnabled === 'boolean') {
           sounds.setSfxEnabled(config.sfxEnabled);
         }
@@ -1015,16 +1017,16 @@ export default function App() {
           onPointerDown={(e) => { 
             e.stopPropagation();
             sounds.init();
-            if (isPaidUser) {
+            if (peace) {
               stateRef.current.weapon = 'ak47'; setGameState({...stateRef.current}); sounds.playUnlock();
             } else {
-              showToast(t.paidOnlyAlert);
+              showToast(t.peaceAlert);
             }
           }}
           className={`px-3 py-2 rounded-lg border-2 flex items-center justify-center transition-all ${
             gameState.weapon === 'ak47' ? 'bg-red-500/80 border-red-300 transform scale-110' : 'bg-black/50 border-white/20 hover:bg-black/70'
-          } ${!isPaidUser ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-          title={isPaidUser ? t.ak47 : t.locked}
+          } ${!peace ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+          title={peace ? t.ak47 : t.locked}
         >
           <img src="/games/shooter/ak47.png" className={`w-5 h-5 object-contain ${gameState.weapon === 'ak47' ? '' : 'opacity-60 grayscale'}`} alt="AK-47" />
         </button>

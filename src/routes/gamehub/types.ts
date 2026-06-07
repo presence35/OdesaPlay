@@ -46,6 +46,7 @@ export interface Claim {
   expiresAt: number;
   venue?: string;
   uid: string;
+  nickname?: string;
   redeemed?: boolean;
   redeemedAt?: any;
 }

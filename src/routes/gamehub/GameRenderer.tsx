@@ -28,6 +28,9 @@ export function renderGameComponent(
     w.Odesa = {
       init: function(opts: any) {},
       ready: function() { setTimeout(() => setGamePlaying(true), 100); },
+      eggFound: function(eggId: string) {
+        window.postMessage({ type: 'ODESAPLAY_EGG_FOUND', eggId }, window.location.origin);
+      },
       gameOver: function(score: number) {
         window.postMessage({ type: 'ODESAPLAY_SCORE', score: score, gameId: w.Odesa.gameId }, window.location.origin);
       },
@@ -35,7 +38,7 @@ export function renderGameComponent(
         if (!w._odesaConfigListeners.includes(cb)) {
           w._odesaConfigListeners.push(cb);
         }
-        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, credits: 100 });
+        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100 });
       },
       onStop: function(cb: any) {
         if (!w._odesaStopListeners.includes(cb)) {
@@ -57,7 +60,7 @@ export function renderGameComponent(
         }
       },
       getConfig: function() {
-        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, credits: 100 };
+        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100 };
       },
       win: function(score: number) {
         this.gameOver(score);
@@ -78,7 +81,7 @@ export function renderGameComponent(
     };
   }
   w.Odesa.gameId = activeGame.id;
-  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled };
+  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false) };
 
   return (
     <div className="flex-1 w-full relative overflow-hidden flex flex-col bg-black">

@@ -8,7 +8,7 @@ export function showToast(message: string) {
 
 export default function Toast() {
   const [message, setMessage] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dismiss = useCallback(() => {
     clearTimeout(timerRef.current);
