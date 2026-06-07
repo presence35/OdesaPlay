@@ -1200,7 +1200,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                   {tournamentWins.map(p => {
                     const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
                     const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
-                    const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
+                    const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title.en === p.gameTitle || g.title.uk === p.gameTitle);
                     return (
                       <div
                         key={p.id}

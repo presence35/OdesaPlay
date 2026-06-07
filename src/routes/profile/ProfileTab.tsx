@@ -177,7 +177,7 @@ export default function ProfileTab({
                   <div className="flex flex-col">
                     <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-1.5 text-[var(--text-primary)]">{game.icon && <img src={game.icon} alt="" className="w-4 h-4 object-contain" />}{game.title[lang]}</span>
                     <span className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mt-1">
-                      {getTimeAgo(r.timestamp, lang)} • {r.playCount || 1} PLAYS • RANK: {rank}/{totalPlayers}
+                      {getTimeAgo(r.timestamp, lang)} • {r.playCount || 1} {t.playsCount} • {t.rankLabel}: {rank}/{totalPlayers}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -233,7 +233,7 @@ export default function ProfileTab({
               if (!selectedBadge) {
                 return (
                   <div className="w-full bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)] p-5 text-center">
-                    <span className="text-xs text-[var(--text-muted)] uppercase font-bold tracking-widest">Tap a badge to learn more</span>
+                    <span className="text-xs text-[var(--text-muted)] uppercase font-bold tracking-widest">{t.tapBadge}</span>
                   </div>
                 );
               }
@@ -250,10 +250,10 @@ export default function ProfileTab({
                   <p className="text-xs text-[var(--text-subtle)] leading-relaxed">{badgeLabel?.desc || ''}</p>
                   {unlocked ? (
                     <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
-                      {(() => { const d = Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000); return `Awarded ${d} ${d === 1 ? 'day' : 'days'} ago`; })()}
+                      {(() => { const d = Math.floor((Date.now() - new Date(achievements[selectedBadge].unlockedAt).getTime()) / 86400000); return d === 1 ? t.badgeUnlockedAgo.replace('{d}', String(d)) : t.badgeUnlockedAgoPlural.replace('{d}', String(d)); })()}
                     </p>
                   ) : (
-                    <p className="text-[10px] text-[var(--text-subtle)] uppercase tracking-wider font-bold">Not yet unlocked</p>
+                    <p className="text-[10px] text-[var(--text-subtle)] uppercase tracking-wider font-bold">{t.badgeNotUnlocked}</p>
                   )}
                 </div>
               );

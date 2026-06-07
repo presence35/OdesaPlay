@@ -37,12 +37,12 @@ export default function PrizesTab({
               const redeemed = p.redeemed;
               const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
               const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
-              const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title[lang] === p.gameTitle);
+              const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title.en === p.gameTitle || g.title.uk === p.gameTitle);
               return (
                 <div key={p.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex items-center justify-between">
                   <div>
                     <div className="text-sm font-black text-[var(--text-accent)]">{p.rewardType}</div>
-                    <div className="text-[10px] text-[var(--text-subtle)] font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{prizeGame?.title[lang] || p.gameTitle} • {p.score} {p.score === 1 ? 'pt' : 'pts'}</div>
+                    <div className="text-[10px] text-[var(--text-subtle)] font-bold mt-0.5 flex items-center gap-1.5">{prizeGame?.icon && <img src={prizeGame.icon} alt="" className="w-4 h-4 object-contain" />}{prizeGame?.title[lang] || p.gameTitle} • {p.score} {t.pts}</div>
                     <div className="text-[9px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-0.5">{venueName}</div>
                   </div>
                   <div className="text-right">
