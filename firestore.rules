@@ -175,6 +175,14 @@ service cloud.firestore {
               .hasOnly(['resolved', 'winners']));
       allow delete: if isAdmin() || isAdminByNickname();
 
+      // ─── Game Notifications (Coming Soon reminders) ──
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasAll(['uid', 'gameId'])
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+
       // ─── Catch-all: deny unknown collections ─────
       allow read, write: if false;
     }

@@ -36,6 +36,7 @@ export default function App() {
   
   const [peace, setPeace] = useState(false);
   const [started, setStarted] = useState(false);
+  const [timerUrgent, setTimerUrgent] = useState(false);
   const startedRef = useRef(false);
   const recoveringRef = useRef(false);
   const [paused, setPaused] = useState(false);
@@ -53,6 +54,7 @@ export default function App() {
     };
     stateRef.current = newState;
     setGameState(newState);
+    setTimerUrgent(false);
     startedRef.current = true;
     setStarted(true);
     setPixiVersion(v => v + 1);
@@ -482,6 +484,8 @@ export default function App() {
         if (scoreRef.current) scoreRef.current.innerText = `${_t.score}: ${Math.floor(state.score)}`;
         if (noiseBarRef.current) noiseBarRef.current.style.width = `${Math.max(0, Math.min(100, 100 - state.silenceLevel))}%`;
         if (timeRef.current) timeRef.current.innerText = `${Math.ceil(state.timeLeft)}`;
+        if (state.timeLeft <= 15 && !timerUrgent) setTimerUrgent(true);
+        else if (state.timeLeft > 15 && timerUrgent) setTimerUrgent(false);
       };
 
       const syncVisuals = (dt: number) => {
@@ -970,8 +974,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 w-12 h-12 flex items-center justify-center bg-black/60 rounded-full backdrop-blur-sm border border-white/20 select-none pointer-events-none">
-        <p ref={timeRef} className="text-xl font-bold text-white pt-1">{Math.ceil(gameState.timeLeft)}</p>
+      <div className={`absolute top-4 right-4 w-14 h-14 flex items-center justify-center bg-black/60 rounded-full backdrop-blur-sm border select-none pointer-events-none ${timerUrgent ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse' : 'border-white/20'}`}>
+        <p ref={timeRef} className={`text-xl font-bold pt-1 ${timerUrgent ? 'text-red-500' : 'text-white'}`}>{Math.ceil(gameState.timeLeft)}</p>
       </div>
 
       {gameState.gameOver && (

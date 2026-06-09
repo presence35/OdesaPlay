@@ -590,7 +590,7 @@ function AirRaidMonitor() {
               </span>
             </div>
             <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mt-1">
-              Source: siren.pp.ua • Last checked: {lastCheck}
+              Last checked: {lastCheck}
             </p>
           </div>
         </div>

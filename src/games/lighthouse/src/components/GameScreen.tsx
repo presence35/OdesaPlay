@@ -12,13 +12,14 @@ interface GameScreenProps {
   globalScore: number;
   totalDockedShips: number;
   t?: any;
+  isAdmin?: boolean;
 }
 
-export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, t }: GameScreenProps) {
+export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, t, isAdmin }: GameScreenProps) {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<LighthouseEngine | null>(null);
 
-  const [timeRemaining, setTimeRemaining] = useState(120_000);
+  const [timeRemaining, setTimeRemaining] = useState(260_000);
   const [scoreEarned, setScoreEarned] = useState(0);
   const [battery, setBattery] = useState(100);
   const [heat, setHeat] = useState(0);
@@ -51,11 +52,14 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, 
   }, []);
 
   useEffect(() => {
+    audio.init();
     const container = pixiContainerRef.current;
     if (!container) return;
 
     const engine = new LighthouseEngine(container, controlsRef);
     engineRef.current = engine;
+
+    let cancelled = false;
 
     (async () => {
       await engine.init(
@@ -68,10 +72,14 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, 
         },
         { upgrades, globalScore, totalDockedShips }
       );
-      engine.start();
+      if (!cancelled) {
+        engine.start();
+      }
     })();
 
     return () => {
+      cancelled = true;
+      audio.stop();
       engine.destroy();
       engineRef.current = null;
     };
@@ -82,13 +90,14 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, 
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-black">
+    <div className="flex-1 flex flex-col h-full">
       <LighthouseView
         weather={weather}
         lightOn={lightOn}
         lightningAlpha={lightningAlpha}
         onCycleWeather={handleCycleWeather}
         containerRef={pixiContainerRef}
+        isAdmin={isAdmin}
       />
 
       <ControlPanel

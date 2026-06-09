@@ -40,6 +40,7 @@ export function useAudio() {
   );
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wasPlayingRef = useRef(false);
+  const shouldAdvanceRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTrackRef = useRef(currentTrack);
   currentTrackRef.current = currentTrack;
@@ -101,7 +102,10 @@ export function useAudio() {
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
-      audioRef.current.onended = playNextTrack;
+      audioRef.current.onended = () => {
+        shouldAdvanceRef.current = false;
+        playNextTrack();
+      };
       audioRef.current.onerror = () => {
         const track = currentTrackRef.current;
         if (track) {
@@ -138,9 +142,10 @@ export function useAudio() {
           navigator.mediaSession.playbackState = 'none';
         }
       } else {
-        const lastTrack = currentTrackRef.current;
-        if (wasPlayingRef.current && musicEnabled && activeTracks.length > 0 && audioRef.current && lastTrack) {
-          playTrackSrc(audioRef.current.src || TRACKS[lastTrack], lastTrack);
+        if (wasPlayingRef.current && musicEnabled && activeTracks.length > 0 && audioRef.current) {
+          audioRef.current.play().catch(e => {
+            console.warn(`[Audio] Resume after visibility change failed: ${e.message}`);
+          });
           if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = null;
             navigator.mediaSession.playbackState = 'none';
@@ -192,6 +197,21 @@ export function useAudio() {
       navigator.mediaSession.metadata = null;
       navigator.mediaSession.playbackState = 'none';
     }
+  };
+
+  const markAdvanceIfNearEnd = () => {
+    if (audioRef.current && audioRef.current.duration > 0) {
+      const pct = audioRef.current.currentTime / audioRef.current.duration;
+      if (pct > 0.8) {
+        shouldAdvanceRef.current = true;
+      }
+    }
+  };
+
+  const consumeAdvanceFlag = () => {
+    const flag = shouldAdvanceRef.current;
+    shouldAdvanceRef.current = false;
+    return flag;
   };
 
   const skipTrack = () => {
@@ -267,5 +287,5 @@ export function useAudio() {
     };
   }, []);
 
-  return { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks: TRACKS, trackOrder: TRACK_ORDER, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume };
+  return { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks: TRACKS, trackOrder: TRACK_ORDER, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume, markAdvanceIfNearEnd, consumeAdvanceFlag };
 }

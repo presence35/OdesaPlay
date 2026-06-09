@@ -7,7 +7,7 @@ import Game from './components/Game';
 
 export default function App() {
   return (
-    <div className="h-full bg-slate-900 overflow-hidden">
+    <div className="h-full bg-slate-900 overflow-hidden select-none">
       <Game />
     </div>
   );

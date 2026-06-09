@@ -1689,10 +1689,10 @@ export default function Game() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-2 bg-gradient-to-b from-zinc-800 to-zinc-900 px-4 py-2 rounded-xl border-b-4 border-slate-600 shadow-xl text-white shrink-0 min-w-[5rem] ring-1 ring-slate-500/30">
-            <svg className={`w-5 h-5 ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className={`w-5 h-5 ${timeLeft < 15 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className={`text-lg sm:text-xl font-black tabular-nums leading-none mt-0.5 ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}s</span>
+            <span className={`text-lg sm:text-xl font-black tabular-nums leading-none mt-0.5 ${timeLeft < 15 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}s</span>
           </div>
         </div>
       )}

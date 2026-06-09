@@ -8,8 +8,7 @@ import { EngineState, EngineCallbacks, EngineConfig } from './EngineTypes';
 import { audio } from '../audio';
 
 const TICK_MS = 50;
-const DAY_DURATION = 120_000;
-const SHIP_LANE_Y = [60, 78, 96];
+const DAY_DURATION = 260_000;
 
 export class LighthouseEngine {
   app: Application;
@@ -23,17 +22,27 @@ export class LighthouseEngine {
   private weatherSys: WeatherSystem;
   private particles: ParticleSystem;
   private droneSprites: Map<string, DroneSprite> = new Map();
+  private shipLaneY: number[] = [0, 0, 0];
 
   private shipSprites: Map<string, ShipSprite> = new Map();
   private drones: Drone[] = [];
   private state: EngineState;
   private stateDirty = false;
+  private destroyed = false;
 
-  private weatherTimer = 0;
   private weatherManuallyCycled = false;
+  private weatherSchedule: { weather: Weather; duration: number }[] = [];
+  private weatherScheduleIndex = 0;
+  private weatherSegmentTimer = 0;
   private timeSinceLastFailure = 0;
-  private nextFailureTarget = 30000 + Math.random() * 12000;
+  private nextFailureTarget = 50000 + Math.random() * 25000;
   private shipIdCounter = 0;
+  private droneTimer = 0;
+  private nextDroneTime = 15000 + Math.random() * 15000;
+  private stormBeamOn = true;
+  private stormFlickerTimer = 0;
+  private lightningRevealTimer = 0;
+  private shipSpawnCooldown = 0;
 
   constructor(
     container: HTMLDivElement,
@@ -73,6 +82,8 @@ export class LighthouseEngine {
 
     const w = this.containerRef.clientWidth || 430;
     const h = this.containerRef.clientHeight || 400;
+    const seaY = h - 60;
+    this.shipLaneY = [seaY + 8, seaY + 25, seaY + 42];
 
     await this.app.init({
       width: w,
@@ -82,6 +93,11 @@ export class LighthouseEngine {
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: true,
     });
+
+    if (this.destroyed) {
+      this.app.destroy();
+      return;
+    }
 
     this.app.stage.sortableChildren = true;
     this.app.stage.addChild(this.bgLayer);
@@ -95,8 +111,9 @@ export class LighthouseEngine {
     this.containerRef.appendChild(this.app.canvas as HTMLCanvasElement);
 
     this.app.ticker.add((ticker) => {
-      const dt = ticker.deltaTime * (1000 / 60);
-      this.tick(dt);
+      const frameScale = ticker.deltaTime;
+      const dtMs = ticker.deltaTime * (1000 / 60);
+      this.tick(frameScale, dtMs);
     });
   }
 
@@ -137,6 +154,7 @@ export class LighthouseEngine {
   }
 
   start() {
+    if (this.destroyed) return;
     this.state = {
       ships: [],
       score: 0,
@@ -151,11 +169,18 @@ export class LighthouseEngine {
       lightningAlpha: 0,
       shiftDocked: 0,
     };
-    this.weatherTimer = 0;
     this.weatherManuallyCycled = false;
+    this.generateWeatherSchedule();
+    this.weatherScheduleIndex = 0;
+    this.weatherSegmentTimer = 0;
     this.timeSinceLastFailure = 0;
-    this.nextFailureTarget = 30000 + Math.random() * 12000;
+    this.nextFailureTarget = 50000 + Math.random() * 25000;
     this.shipIdCounter = 0;
+    this.droneTimer = 0;
+    this.nextDroneTime = 15000 + Math.random() * 15000;
+    this.stormBeamOn = true;
+    this.stormFlickerTimer = 0;
+    this.lightningRevealTimer = 0;
     this.drones = [];
     this.droneSprites.clear();
     this.entityLayer.removeChildren();
@@ -178,7 +203,59 @@ export class LighthouseEngine {
     this.stateDirty = true;
   }
 
-  private tick(dt: number) {
+  private generateWeatherSchedule() {
+    const total = DAY_DURATION;
+
+    // Storm 10-20%, Fog 20-30%, Clear remainder
+    const stormTotal = total * (0.10 + Math.random() * 0.10);
+    const fogTotal = total * (0.20 + Math.random() * 0.10);
+    const clearTotal = total - stormTotal - fogTotal;
+
+    const segs: { weather: Weather; duration: number }[] = [];
+
+    // First segment: always clear, at least 20s (up to 40s)
+    const firstClear = 20000 + Math.random() * Math.min(20000, Math.max(0, clearTotal - 20000));
+    segs.push({ weather: 'clear', duration: firstClear });
+
+    const remainingClear = clearTotal - firstClear;
+
+    const addSegs = (w: Weather, t: number) => {
+      if (t < 5000) return;
+      const n = Math.min(1 + Math.floor(Math.random() * 2), Math.floor(t / 5000));
+      let rem = t;
+      for (let i = 0; i < n - 1; i++) {
+        const d = Math.max(5000, rem * (0.3 + Math.random() * 0.4));
+        segs.push({ weather: w, duration: d });
+        rem -= d;
+      }
+      segs.push({ weather: w, duration: Math.max(5000, rem) });
+    };
+
+    if (remainingClear > 0) addSegs('clear', remainingClear);
+    addSegs('fog', fogTotal);
+    addSegs('storm', stormTotal);
+
+    // Shuffle all except the first segment
+    const head = segs[0];
+    const tail = segs.slice(1);
+    for (let i = tail.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tail[i], tail[j]] = [tail[j], tail[i]];
+    }
+
+    this.weatherSchedule = [head, ...tail];
+
+    // Ensure total matches DAY_DURATION (last segment absorbs rounding)
+    const sumDur = this.weatherSchedule.reduce((a, s) => a + s.duration, 0);
+    if (this.weatherSchedule.length > 0) {
+      this.weatherSchedule[this.weatherSchedule.length - 1].duration += DAY_DURATION - sumDur;
+    }
+
+    this.weatherScheduleIndex = 0;
+    this.weatherSegmentTimer = 0;
+  }
+
+  private tick(frameScale: number, dt: number) {
     const s = this.state;
     const c = this.controlsRef.current;
     const upgrades = this.config?.upgrades || { autoFoghorn: false, tungstenFilament: false, solarBackup: false };
@@ -186,39 +263,64 @@ export class LighthouseEngine {
     const globalScore = this.config?.globalScore || 0;
 
     // --- Time ---
-    s.timeRemaining = Math.max(0, s.timeRemaining - TICK_MS);
+    s.timeRemaining = Math.max(0, s.timeRemaining - TICK_MS * frameScale);
     if (s.timeRemaining <= 0) {
+      s.fuseBlown = false;
       this.callbacks?.onDayEnd(s.score, s.shiftDocked);
       return;
     }
 
-    // --- Weather ---
-    this.weatherTimer += TICK_MS;
-    if (!this.weatherManuallyCycled) {
-      if (this.weatherTimer > 30000 && this.weatherTimer <= 65000 && s.weather !== 'fog' && s.weather !== 'storm') {
-        s.weather = Math.random() < 0.4 ? 'storm' : 'fog';
-        this.weatherSys.setWeather(s.weather);
-        audio.playFoghorn();
-        audio.setWeather(s.weather);
-      }
-      if (this.weatherTimer > 65000 && s.weather !== 'storm') {
-        s.weather = 'storm';
-        this.weatherSys.setWeather('storm');
-        audio.playFoghorn();
-        audio.setWeather('storm');
+    // --- Weather schedule ---
+    if (!this.weatherManuallyCycled && this.weatherSchedule.length > 0) {
+      this.weatherSegmentTimer += TICK_MS * frameScale;
+      const seg = this.weatherSchedule[this.weatherScheduleIndex];
+      if (this.weatherSegmentTimer >= seg.duration && this.weatherScheduleIndex < this.weatherSchedule.length - 1) {
+        this.weatherSegmentTimer = 0;
+        this.weatherScheduleIndex++;
+        const nextSeg = this.weatherSchedule[this.weatherScheduleIndex];
+        if (nextSeg.weather !== s.weather) {
+          s.weather = nextSeg.weather;
+          this.weatherSys.setWeather(s.weather);
+          audio.setWeather(s.weather);
+          if (s.weather !== 'clear') audio.playFoghorn();
+        }
       }
     }
 
     // --- Lightning ---
     if (s.weather === 'storm') {
       if (s.lightningAlpha > 0) {
-        s.lightningAlpha = Math.max(0, s.lightningAlpha - 0.05);
+        s.lightningAlpha = Math.max(0, s.lightningAlpha - 0.05 * frameScale);
         this.weatherSys.setLightningFlash(s.lightningAlpha);
       } else if (Math.random() < 0.005) {
         s.lightningAlpha = 0.8;
         this.weatherSys.setLightningFlash(0.8);
         setTimeout(() => audio.playThunder(), 100 + Math.random() * 320);
       }
+    }
+
+    // --- Storm beam flicker ---
+    if (s.weather === 'storm' && s.lightOn) {
+      this.stormFlickerTimer -= TICK_MS * frameScale;
+      if (this.stormFlickerTimer <= 0) {
+        if (this.stormBeamOn) {
+          this.stormBeamOn = false;
+          this.stormFlickerTimer = 200 + Math.random() * 400;
+        } else {
+          this.stormBeamOn = true;
+          this.stormFlickerTimer = 1200 + Math.random() * 2000;
+        }
+      }
+    } else {
+      this.stormBeamOn = true;
+      this.stormFlickerTimer = 0;
+    }
+
+    // --- Lightning reveal ---
+    if (s.lightningAlpha > 0) {
+      this.lightningRevealTimer = 500;
+    } else if (this.lightningRevealTimer > 0) {
+      this.lightningRevealTimer -= TICK_MS * frameScale;
     }
 
     // --- Weather particles ---
@@ -228,7 +330,7 @@ export class LighthouseEngine {
     const timeElapsed = DAY_DURATION - s.timeRemaining;
     this.updateDrones(timeElapsed, dt);
 
-    // --- Fuse / System Failure ---
+    // --- Ships ---
     if (s.fuseBlown) {
       s.lightOn = false;
       if (c.fuseFixTaps > 0) {
@@ -238,12 +340,12 @@ export class LighthouseEngine {
         }
       }
     } else {
-      this.timeSinceLastFailure += TICK_MS;
-      if (this.timeSinceLastFailure >= this.nextFailureTarget) {
+      this.timeSinceLastFailure += TICK_MS * frameScale;
+      if (s.timeRemaining > 15000 && this.timeSinceLastFailure >= this.nextFailureTarget) {
         s.fuseBlown = true;
         s.fuseHealth = 3 + Math.floor(Math.random() * 8);
         this.timeSinceLastFailure = 0;
-        this.nextFailureTarget = 30000 + Math.random() * 12000;
+        this.nextFailureTarget = 50000 + Math.random() * 25000;
         audio.playSpark();
       }
 
@@ -254,9 +356,9 @@ export class LighthouseEngine {
       if (c.isLightPressed && s.battery > 0 && !s.isCooledDown) {
         if (!s.lightOn) audio.playLightToggle(true);
         s.lightOn = true;
-        const drainRate = upgrades.solarBackup && s.weather === 'storm' ? 0.2 : 0.5;
+        const drainRate = (upgrades.solarBackup && s.weather === 'storm' ? 0.2 : 0.5) * frameScale;
         s.battery = Math.max(0, s.battery - drainRate);
-        const heatRate = upgrades.tungstenFilament ? 0.3 : 0.6;
+        const heatRate = (upgrades.tungstenFilament ? 0.3 : 0.6) * frameScale;
         s.heat += heatRate;
         if (s.heat >= 100) {
           s.isCooledDown = true;
@@ -266,15 +368,15 @@ export class LighthouseEngine {
       } else {
         if (s.lightOn) audio.playLightToggle(false);
         s.lightOn = false;
-        s.heat = Math.max(0, s.heat - 0.9);
+        s.heat = Math.max(0, s.heat - 0.9 * frameScale);
         if (s.heat <= 0) s.isCooledDown = false;
       }
     }
 
-    // --- Ships ---
-    this.processShips(c, upgrades, totalDockedShips, globalScore);
+    this.processShips(c, upgrades, totalDockedShips, globalScore, frameScale);
 
     // --- Spawn ---
+    this.shipSpawnCooldown = Math.max(0, this.shipSpawnCooldown - TICK_MS * frameScale);
     this.spawnShips();
 
     // --- Reset action queues ---
@@ -289,10 +391,11 @@ export class LighthouseEngine {
     this.emitState();
   }
 
-  private processShips(c: GameControls, upgrades: Upgrades, totalDockedShips: number, globalScore: number) {
+  private processShips(c: GameControls, upgrades: Upgrades, totalDockedShips: number, globalScore: number, frameScale: number) {
     const s = this.state;
-    const lightOn = s.lightOn;
     const weather = s.weather;
+    const beamEffective = s.lightOn && (weather !== 'storm' || this.stormBeamOn);
+    const lightningReveal = this.lightningRevealTimer > 0;
 
     s.ships = s.ships.filter(ship => {
       if ((ship.status === 'crashed' || ship.status === 'cleared') && ship.distance < -15) {
@@ -308,7 +411,13 @@ export class LighthouseEngine {
 
     // Dock
     if (c.dockTaps > 0) {
-      const dockable = s.ships.filter(ship => ship.status === 'approaching' && ship.distance < 85 && ship.distance > 0);
+      const dockable = s.ships.filter(ship => {
+        if (ship.status !== 'approaching') return false;
+        if (ship.distance <= 0 || ship.distance >= 85) return false;
+        if (weather === 'clear' || weather === 'fog') return beamEffective ? true : ship.distance < 65;
+        if (weather === 'storm') return s.lightOn || lightningReveal;
+        return true;
+      });
       if (dockable.length > 0) {
         const match = dockable.find(ship => Math.abs(ship.frequency - c.tunedFreq) <= 0.6);
         if (match) {
@@ -325,7 +434,7 @@ export class LighthouseEngine {
           const sp = this.shipSprites.get(match.id);
           if (sp) sp.setCleared();
           const px = this.shipToScreenX(match);
-          const py = SHIP_LANE_Y[match.lane] || 60;
+          const py = this.shipLaneY[match.lane] || 60;
           this.particles.emit(px, py, 8, 0x4ade80, 2, 2);
           this.particles.addPopup(`+${earned}`, px, py - 15, diff < 0.1 ? 0x4ade80 : 0xfacc15);
         } else {
@@ -337,13 +446,13 @@ export class LighthouseEngine {
     // Move ships
     for (const ship of s.ships) {
       if (ship.status === 'approaching') {
-        let speed = 0.2;
-        if (ship.shipClass === 'cargoship') speed = 0.12;
-        if (ship.shipClass === 'speedboat') speed = 0.35;
-        if (weather === 'fog') speed *= (upgrades.autoFoghorn ? 0.75 : 2.0);
-        if (weather === 'storm') speed *= 2.5;
-        if (lightOn) speed *= 0.3;
-        ship.distance -= speed;
+        let speed = 0.056;
+        if (ship.shipClass === 'cargoship') speed = 0.035;
+        if (ship.shipClass === 'speedboat') speed = 0.098;
+        if (weather === 'clear') speed *= beamEffective ? 0.6 : 1.0;
+        if (weather === 'fog') speed *= beamEffective ? 0.6 : (upgrades.autoFoghorn ? 0.75 : 1.8);
+        if (weather === 'storm') speed *= beamEffective ? 0.4 : 1.8;
+        ship.distance -= speed * frameScale;
 
         if (ship.distance <= 0) {
           ship.status = 'crashed' as ShipStatus;
@@ -356,7 +465,7 @@ export class LighthouseEngine {
           s.score -= penalty;
           if (penalty > 0) {
             const px = this.shipToScreenX(ship);
-            const py = SHIP_LANE_Y[ship.lane] || 60;
+            const py = this.shipLaneY[ship.lane] || 60;
             this.particles.addPopup(`-${penalty}`, px, py - 15, 0xdc2626);
             this.particles.emit(px, py, 12, 0xef4444, 3, 3);
           }
@@ -368,7 +477,7 @@ export class LighthouseEngine {
           }
         }
       } else {
-        ship.distance -= 1.0;
+        ship.distance -= 1.0 * frameScale;
       }
     }
 
@@ -377,11 +486,23 @@ export class LighthouseEngine {
       const sp = this.shipSprites.get(ship.id);
       if (!sp) continue;
       const px = this.shipToScreenX(ship);
-      const py = SHIP_LANE_Y[ship.lane] || 60;
+      const py = this.shipLaneY[ship.lane] || 60;
       sp.x = px;
       sp.y = py;
-      sp.scale.set(1 - (ship.lane || 0) * 0.15);
-      sp.updateLabel(ship.status === 'approaching' && ship.distance < 85, ship.frequency, c.tunedFreq);
+      const laneScale = 1 - (ship.lane || 0) * 0.08;
+      sp.scale.set(1, laneScale);
+      sp.hullContainer.scale.set(-1, 1);
+      const showFreq = ship.status === 'approaching' && ship.distance < 85 && (weather === 'clear' || beamEffective || lightningReveal);
+      sp.updateLabel(showFreq, ship.frequency, c.tunedFreq);
+      if (ship.status === 'approaching') {
+        if (weather === 'clear') {
+          sp.alpha = 1.0;
+        } else if (weather === 'fog') {
+          sp.alpha = beamEffective || lightningReveal ? 1.0 : 0.15;
+        } else if (weather === 'storm') {
+          sp.alpha = beamEffective || lightningReveal ? 1.0 : 0.05;
+        }
+      }
       if (ship.status === 'cleared') {
         sp.alpha = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
       }
@@ -393,7 +514,7 @@ export class LighthouseEngine {
   private shipToScreenX(ship: Ship): number {
     const w = this.containerRef.clientWidth || 430;
     const rightEdge = w * 0.85;
-    const leftEdge = w * 0.15;
+    const leftEdge = w * 0.10;
     return leftEdge + (ship.distance / 100) * rightEdge;
   }
 
@@ -406,17 +527,24 @@ export class LighthouseEngine {
       return inLane.every(ship => ship.distance < 80);
     });
 
-    if (activeApproach.length < 4 && availableLanes.length > 0) {
+    if (activeApproach.length < 4 && availableLanes.length > 0 && this.shipSpawnCooldown <= 0) {
       const spawnChance = activeApproach.length === 0 ? 0.05 : 0.015;
       if (Math.random() < spawnChance) {
         const pickedLane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
         const randClass = Math.random();
         const shipClass = randClass < 0.2 ? 'cargoship' : (randClass < 0.4 ? 'speedboat' : 'standard');
+        const existingFreqs = activeApproach.map(s => s.frequency);
+        let freq: number;
+        let spawnAttempts = 0;
+        do {
+          freq = 80.0 + (Math.floor(Math.random() * 41) * 0.5);
+          spawnAttempts++;
+        } while (spawnAttempts < 50 && existingFreqs.some(f => Math.abs(f - freq) < 2.0));
         const id = `ship-${this.shipIdCounter++}`;
         const newShip: Ship = {
           id,
           distance: 100,
-          frequency: 80.0 + (Math.floor(Math.random() * 41) * 0.5),
+          frequency: freq,
           speed: 0.2,
           lane: pickedLane,
           status: 'approaching',
@@ -425,28 +553,36 @@ export class LighthouseEngine {
         s.ships.push(newShip);
         const sprite = new ShipSprite(newShip);
         sprite.x = this.shipToScreenX(newShip);
-        sprite.y = SHIP_LANE_Y[pickedLane] || 60;
+        sprite.y = this.shipLaneY[pickedLane] || 60;
+        const laneScale = 1 - (pickedLane || 0) * 0.08;
+        sprite.scale.set(1, laneScale);
+        sprite.hullContainer.scale.set(-1, 1);
         this.entityLayer.addChild(sprite);
         this.shipSprites.set(id, sprite);
+        this.shipSpawnCooldown = 2000;
       }
     }
   }
 
   private updateDrones(timeElapsed: number, dt: number) {
-    if (timeElapsed < 10000 && this.drones.length === 0) return;
-
+    // Spawn drones on a random timer
     if (this.drones.length === 0) {
-      const dir = Math.random() > 0.5 ? 1 : -1;
-      const drone: Drone = {
-        id: `drone-${Date.now()}`,
-        progress: dir === 1 ? -20 : 120,
-        altitude: 10 + Math.random() * 30,
-        direction: dir,
-      };
-      this.drones.push(drone);
-      const ds = new DroneSprite(drone);
-      this.entityLayer.addChild(ds);
-      this.droneSprites.set(drone.id, ds);
+      this.droneTimer += dt;
+      if (this.droneTimer >= this.nextDroneTime) {
+        this.droneTimer = 0;
+        this.nextDroneTime = 15000 + Math.random() * 15000;
+        const dir = Math.random() > 0.5 ? 1 : -1;
+        const drone: Drone = {
+          id: `drone-${Date.now()}`,
+          progress: dir === 1 ? -20 : 120,
+          altitude: 10 + Math.random() * 30,
+          direction: dir,
+        };
+        this.drones.push(drone);
+        const ds = new DroneSprite(drone);
+        this.entityLayer.addChild(ds);
+        this.droneSprites.set(drone.id, ds);
+      }
     }
 
     for (const drone of this.drones) {
@@ -455,7 +591,7 @@ export class LighthouseEngine {
       const w = this.containerRef.clientWidth || 430;
       const h = this.containerRef.clientHeight || 400;
 
-      const speed = 0.03 * dt;
+      const speed = 0.0075 * dt;
       if (drone.direction === 1) {
         drone.progress += speed;
       } else {
@@ -468,6 +604,7 @@ export class LighthouseEngine {
       ds.y = py;
       ds.scale.set(drone.direction === 1 ? 1 : -1, 1);
       ds.update(dt);
+      ds.alpha = this.state.weather === 'fog' ? 0.7 : 1.0;
 
       if (drone.progress > 130 || drone.progress < -30) {
         this.drones = [];
@@ -491,7 +628,9 @@ export class LighthouseEngine {
   }
 
   destroy() {
-    this.app.ticker.destroy();
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.app.ticker) this.app.ticker.stop();
     this.weatherSys.destroy();
     this.particles.destroy();
     for (const sp of this.shipSprites.values()) {
@@ -506,9 +645,11 @@ export class LighthouseEngine {
     this.droneSprites.clear();
     this.entityLayer.removeChildren();
     this.bgLayer.removeChildren();
-    if (this.app.canvas && this.app.canvas.parentElement) {
-      this.app.canvas.parentElement.removeChild(this.app.canvas as HTMLCanvasElement);
-    }
-    this.app.destroy();
+    try {
+      if (this.app.canvas && this.app.canvas.parentElement) {
+        this.app.canvas.parentElement.removeChild(this.app.canvas as HTMLCanvasElement);
+      }
+      this.app.destroy();
+    } catch (_) {}
   }
 }

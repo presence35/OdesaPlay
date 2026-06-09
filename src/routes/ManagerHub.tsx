@@ -383,7 +383,7 @@ export default function ManagerHub() {
   const venueClaims = allClaims.filter(c => c.venueId === restaurantId);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans select-none">
       {/* Header */}
       <header className="px-4 py-3 flex items-center justify-center fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
         <h1 className="text-xl font-black italic uppercase text-[var(--text-accent)] text-center">

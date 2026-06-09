@@ -6,8 +6,9 @@
     "node": ">=21.7.3"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n vite,server \"vite\" \"node server.js\"",
     "dev:server": "vite build && node server.js",
+    "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -28,6 +29,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "clsx": "^2.1.1",
+    "concurrently": "^10.0.3",
     "dotenv": "^17.2.3",
     "eslint": "^10.3.0",
     "ffmpeg-static": "^5.3.0",
@@ -41,6 +43,7 @@
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.15.0",
     "recharts": "^3.8.1",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

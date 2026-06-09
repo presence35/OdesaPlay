@@ -15,6 +15,7 @@ export function renderGameComponent(
   sfxEnabled: boolean,
   musicEnabled: boolean,
   setGamePlaying: (v: boolean) => void,
+  isAdmin?: boolean,
 ) {
   if (!activeGame) return null;
 
@@ -38,7 +39,7 @@ export function renderGameComponent(
         if (!w._odesaConfigListeners.includes(cb)) {
           w._odesaConfigListeners.push(cb);
         }
-        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100 });
+        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100, isAdmin: w.Odesa._latestConfig?.isAdmin ?? false });
       },
       onStop: function(cb: any) {
         if (!w._odesaStopListeners.includes(cb)) {
@@ -60,7 +61,7 @@ export function renderGameComponent(
         }
       },
       getConfig: function() {
-        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100 };
+        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100, isAdmin: w.Odesa._latestConfig?.isAdmin ?? false };
       },
       win: function(score: number) {
         this.gameOver(score);
@@ -81,10 +82,10 @@ export function renderGameComponent(
     };
   }
   w.Odesa.gameId = activeGame.id;
-  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false) };
+  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), isAdmin: isAdmin ?? false };
 
   return (
-    <div className="flex-1 w-full relative overflow-hidden flex flex-col bg-black">
+    <div className="flex-1 w-full relative overflow-hidden flex flex-col bg-black select-none">
       <Suspense fallback={
   <div className="flex-1 flex items-center justify-center bg-black">
     <LoadingSpinner

@@ -248,7 +248,9 @@ export default function TriviaGame() {
       fontFamily: "'Crimson Text', 'Georgia', serif",
       color: "#e8dcc8",
       overflowY: "auto",
-      overscrollBehavior: "contain"
+      overscrollBehavior: "contain",
+      userSelect: "none",
+      WebkitUserSelect: "none"
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@400;600;700&family=Roboto:wght@400;500&display=swap');

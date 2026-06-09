@@ -123,4 +123,11 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  /* iOS PWA: eliminate 300ms tap delay on all interactive elements */
+  touch-action: manipulation;
+  /* iOS PWA: prevent content clipping under notch / home indicator on iPhone X+ */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }

@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { Activity, BarChart2, Pencil, X, Flame, Trophy, Share2, Award, Package } from 'lucide-react';
+import { X, Flame, Trophy, Share2, Award, Package } from 'lucide-react';
 import EasterEggSection from '../../components/EasterEggSection';
 import { BADGE_DEFINITIONS } from '../gamehub/constants';
 import { Game } from '../gamehub/types';
@@ -22,7 +22,6 @@ interface ProfileTabProps {
   profile: { nickname: string; avatar: string };
   t: any;
   lang: Language;
-  isAdmin: boolean;
   isEditing: boolean;
   editName: string;
   editAvatar: string;
@@ -33,8 +32,6 @@ interface ProfileTabProps {
   setNameError: (v: string) => void;
   saveProfile: () => Promise<void>;
   getUserId: () => string;
-  onNavigateAdmin: () => void;
-  onNavigateSales: () => void;
   userLeaderboards: any[];
   leaderboards: any[];
   gamesList: Game[];
@@ -53,7 +50,6 @@ export default function ProfileTab({
   profile,
   t,
   lang,
-  isAdmin,
   isEditing,
   editName,
   editAvatar,
@@ -64,8 +60,6 @@ export default function ProfileTab({
   setNameError,
   saveProfile,
   getUserId,
-  onNavigateAdmin,
-  onNavigateSales,
   userLeaderboards,
   leaderboards,
   gamesList,
@@ -100,21 +94,7 @@ export default function ProfileTab({
               <h3 className="text-2xl font-black uppercase italic tracking-tighter text-[var(--text-accent)]">{profile.nickname || `HERO_${getUserId().substring(0,8)}`}</h3>
               <p className="text-[var(--text-muted)] font-bold text-[10px] uppercase tracking-widest mt-1">{t.rank}</p>
             </div>
-            <div className="flex justify-center gap-2">
-              {isAdmin && (
-                <>
-                  <button onClick={onNavigateAdmin} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                    <Activity className="w-5 h-5" />
-                  </button>
-                  <button onClick={onNavigateSales} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                    <BarChart2 className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-              <button onClick={() => setIsEditing(true)} className="p-2 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)]">
-                <Pencil className="w-5 h-5" />
-              </button>
-            </div>
+
           </div>
 
           {/* Stats Grid */}

@@ -130,7 +130,7 @@ export default function SettingsTab({
       {/* Notification Settings */}
       <div className="space-y-4">
         <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[var(--text-accent)]" /> {t.notifications}</h3>
+          <Bell className="w-4 h-4 text-[var(--text-accent)]" /> {t.notifications} <span className="text-[9px] font-mono text-[var(--text-subtle)] tracking-normal font-normal">v1.0.2</span></h3>
         <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-3 shadow-xl">
           {([
             { key: 'droneAlerts', label: t.droneAlerts, desc: t.droneAlertsDesc },

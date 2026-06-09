@@ -26,6 +26,7 @@ export default function App() {
   });
 
   const [lang, setLang] = useState<'en' | 'uk'>('uk');
+  const [isAdmin, setIsAdmin] = useState(false);
   const t = TRANSLATIONS[lang];
 
   const scoreRef = useRef(score);
@@ -75,6 +76,7 @@ export default function App() {
       odesa.onConfig((config: any) => {
         if (config.lang) setLang(config.lang as 'en' | 'uk');
         if (config.sfxEnabled !== undefined) audio.setSfxEnabled(config.sfxEnabled);
+        if (config.isAdmin !== undefined) setIsAdmin(config.isAdmin);
       });
 
       odesa.onStop(() => {
@@ -93,57 +95,56 @@ export default function App() {
 
     return () => {
       unregisterSoundPauser(pauser);
+      audio.stop();
     };
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#020617] flex justify-center items-center md:py-8 font-sans selection:bg-yellow-500/30">
-      {/* Mobile-first constraints block */}
-      <div className="w-full min-h-dvh md:h-[850px] max-w-[430px] bg-[#0A1128] text-white relative flex flex-col shadow-2xl md:rounded-[2.5rem] border-0 md:border-[12px] border-[#1E293B]">
-        
-        {currentScreen === 'start' && (
-          <StartScreen
-            t={t}
-            onStart={() => {
-              setCurrentScreen('playing');
-              window.parent.postMessage({ type: 'ODESAPLAY_GAME_STARTED' }, '*');
-            }}
-          />
-        )}
+    <div className="absolute inset-0 bg-[#0A1128] text-white flex flex-col overflow-hidden">
+      
+      {currentScreen === 'start' && (
+        <StartScreen
+          t={t}
+          onStart={() => {
+            setCurrentScreen('playing');
+            window.parent.postMessage({ type: 'ODESAPLAY_GAME_STARTED' }, '*');
+          }}
+        />
+      )}
 
-        {currentScreen === 'playing' && (
-          <GameScreen 
-            upgrades={upgrades}
-            onDayEnd={handleDayEnd}
-            globalScore={score}
-            totalDockedShips={totalDockedShips}
-            t={t}
-          />
-        )}
+      {currentScreen === 'playing' && (
+        <GameScreen 
+          upgrades={upgrades}
+          onDayEnd={handleDayEnd}
+          globalScore={score}
+          totalDockedShips={totalDockedShips}
+          t={t}
+          isAdmin={isAdmin}
+        />
+      )}
 
-        {currentScreen === 'upgrade' && (
-          <UpgradeScreen 
-            score={score}
-            upgrades={upgrades}
-            dayCount={dayCount}
-            lastEarnings={lastEarnings}
-            onBuy={handleBuy}
-            onNextDay={handleNextDay}
-            t={t}
-          />
-        )}
+      {currentScreen === 'upgrade' && (
+        <UpgradeScreen 
+          score={score}
+          upgrades={upgrades}
+          dayCount={dayCount}
+          lastEarnings={lastEarnings}
+          onBuy={handleBuy}
+          onNextDay={handleNextDay}
+          t={t}
+        />
+      )}
 
-        {currentScreen === 'gameover' && (
-          <GameOverScreen 
-            score={score}
-            totalDockedShips={totalDockedShips}
-            dayCount={dayCount}
-            onRestart={handleGameOver}
-            t={t}
-          />
-        )}
-        
-      </div>
+      {currentScreen === 'gameover' && (
+        <GameOverScreen 
+          score={score}
+          totalDockedShips={totalDockedShips}
+          dayCount={dayCount}
+          onRestart={handleGameOver}
+          t={t}
+        />
+      )}
+      
     </div>
   );
 }

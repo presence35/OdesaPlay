@@ -130,19 +130,18 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
             [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-1.5 [&::-moz-range-thumb]:h-10 [&::-moz-range-thumb]:bg-red-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:shadow-[0_0_12px_rgba(239,68,68,0.9)]"
           />
         </div>
-        <button
-          onPointerDown={attemptDock}
-          className="bg-white text-slate-900 px-4 py-3 rounded-lg font-bold uppercase active:scale-[0.93] active:bg-slate-300 transition-all duration-75 shadow-[0_4px_0_#94a3b8] active:shadow-[0_0px_0_#94a3b8] active:translate-y-1 flex items-center gap-1 text-sm tracking-wider outline-none touch-manipulation"
-        >
+          <button
+            onPointerDown={attemptDock}
+            onContextMenu={(e) => e.preventDefault()}
+            className="bg-white text-slate-900 px-4 py-3 rounded-lg font-bold uppercase active:scale-[0.93] active:bg-slate-300 transition-all duration-75 shadow-[0_4px_0_#94a3b8] active:shadow-[0_0px_0_#94a3b8] active:translate-y-1 flex items-center gap-1 text-sm tracking-wider outline-none touch-manipulation"
+          >
           <Check className="w-4 h-4" /> {t?.dock || 'Dock'}
         </button>
       </div>
 
       {/* Row 2: Main Interactions (Light & Pump) */}
       <div className="flex-1 flex gap-4 min-h-[140px]">
-        {/* Generator Pump (Left side) + Heat Gauge */}
         <div className="flex gap-2">
-          {/* Heat Gauge Moved Next To Pump */}
           <div className="flex flex-col items-center h-full">
             <div className="relative w-4 flex-1 mb-1 bg-slate-900 rounded-full border border-slate-800 overflow-hidden flex flex-col justify-end">
               <div 
@@ -157,32 +156,40 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
 
           <div 
             className="w-24 bg-slate-900 rounded-2xl relative overflow-hidden border border-slate-800 shadow-inner flex flex-col items-center justify-center cursor-ns-resize touch-none"
+            onContextMenu={(e) => e.preventDefault()}
             onPointerDown={handlePumpDown}
             onPointerMove={handlePumpMove}
             onPointerUp={handlePumpUp}
             onPointerLeave={handlePumpUp}
           >
-            {/* Battery Fill level visual */}
             <div 
               className="absolute bottom-0 left-0 right-0 bg-blue-600/40 transition-all duration-100 rounded-b-xl"
               style={{ height: `${battery}%` }}
             />
-            <div className="z-10 flex flex-col items-center pointer-events-none text-slate-400">
+            {battery <= 0 && <div className="absolute inset-0 bg-red-500/15 blur-2xl animate-pulse pointer-events-none rounded-full" />}
+            <div className="z-10 flex flex-col items-center pointer-events-none">
               <div className="w-1 h-8 border-l-2 border-r-2 border-slate-600 dotted rounded opacity-50 mb-2"></div>
-              <span className="font-bold uppercase tracking-widest text-[10px] text-center px-1">Swipe<br/>Pump</span>
+              {battery > 16 ? (
+                <span className="font-bold uppercase tracking-widest text-center text-[10px] text-slate-400 px-1">water level</span>
+              ) : (
+                <span className="font-bold uppercase tracking-widest text-center text-red-500 animate-pulse text-[20px] leading-none">Swipe<br/>Pump</span>
+              )}
               <div className="font-mono text-xs text-white mt-1">{Math.floor(battery)}%</div>
             </div>
           </div>
         </div>
+
 
         {/* Light Center */}
         <div className="flex-1 flex flex-col items-center justify-center relative">
           {/* Heat warning halo */}
           {heat > 75 && <div className="absolute inset-0 bg-red-500/10 blur-xl animate-pulse pointer-events-none rounded-full" />}
           
-          <div className="font-mono text-xl font-bold text-slate-300 mb-2 tracking-widest">{timeStr}</div>
+          {timeRemaining <= 15000 && <div className="absolute inset-0 bg-red-500/15 blur-2xl animate-pulse pointer-events-none rounded-full" />}
+          <div className={`font-mono text-xl font-bold mb-2 tracking-widest ${timeRemaining <= 15000 ? 'text-red-500 animate-pulse drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] scale-110' : 'text-slate-300'}`}>{timeStr}</div>
 
           <button
+            onContextMenu={(e) => e.preventDefault()}
             onPointerDown={() => {
               controlsRef.current.isLightPressed = true;
               if (battery <= 0 || isCooledDown) audio.playError();
@@ -212,6 +219,7 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
             {t?.tapToRepair || 'Tap to repair'} {Math.ceil(fuseHealth)}x
           </div>
           <button
+            onContextMenu={(e) => e.preventDefault()}
             onPointerDown={attemptFixFuse}
             className="w-32 h-32 bg-red-600 rounded-full border-4 border-red-900 flex flex-col items-center justify-center shadow-[0_0_50px_rgba(239,68,68,0.4)] active:scale-95 active:bg-red-700 touch-none outline-none transition-transform"
           >

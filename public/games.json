@@ -18,7 +18,7 @@
   {
     "id": "lighthouse",
     "cat": "arcade",
-    "title": { "en": "Lighthouse Keeper", "uk": "Маяк Воронцова" },
+    "title": { "en": "Vorontsov Keeper", "uk": "Маяк Воронцова" },
     "url": "./games/lighthouse/",
     "icon": "/images/lighthouse.png",
     "orientation": "portrait"

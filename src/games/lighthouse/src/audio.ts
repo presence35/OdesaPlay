@@ -4,6 +4,8 @@ export class AudioEngine {
     ctx: AudioContext | null = null;
     ambienceGain: GainNode | null = null;
     ambienceFilter: BiquadFilterNode | null = null;
+    ambienceNoise: AudioBufferSourceNode | null = null;
+    ambienceLfo: OscillatorNode | null = null;
     sfxEnabled: boolean = true;
     currentAmbienceGain: number = 0.05;
     
@@ -92,12 +94,35 @@ export class AudioEngine {
       lfoGain.gain.value = 200;
       lfo.connect(lfoGain);
       lfoGain.connect(filter.frequency);
+      this.ambienceLfo = lfo;
       lfo.start();
 
       noise.connect(filter);
       filter.connect(this.ambienceGain);
       this.ambienceGain.connect(this.ctx.destination);
+      this.ambienceNoise = noise;
       noise.start();
+    }
+
+    stop() {
+        if (this.ambienceLfo) {
+            this.ambienceLfo.stop();
+            this.ambienceLfo.disconnect();
+            this.ambienceLfo = null;
+        }
+        if (this.ambienceNoise) {
+            this.ambienceNoise.stop();
+            this.ambienceNoise.disconnect();
+            this.ambienceNoise = null;
+        }
+        if (this.ambienceGain) {
+            this.ambienceGain.disconnect();
+            this.ambienceGain = null;
+        }
+        if (this.ambienceFilter) {
+            this.ambienceFilter.disconnect();
+            this.ambienceFilter = null;
+        }
     }
 
     playPump() {

@@ -16,12 +16,18 @@ export default defineConfig(() => {
         short_name: 'ODESA ГРА',
         description: 'Грайте за Одесу',
         start_url: '/',
-        display: 'fullscreen',
+        display: 'standalone',
         background_color: '#0a0a0c',
         theme_color: '#0a0a0c',
         icons: [
           {src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml'},
           {src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml'},
+          // TODO: replace these auto-generated PNGs with proper designed icons
+          {src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png'},
+          {src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png'},
+          {src: '/icons/icon-152.png', sizes: '152x152', type: 'image/png'},
+          {src: '/icons/icon-167.png', sizes: '167x167', type: 'image/png'},
+          {src: '/icons/icon-180.png', sizes: '180x180', type: 'image/png'},
         ],
       },
       injectManifest: {

@@ -36,7 +36,7 @@ export default function PrizesTab({
               const expired = p.expiresAt < Date.now();
               const redeemed = p.redeemed;
               const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
-              const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+              const venueName = venue ? (venue.name[lang] || venue.name['uk'] || venue.name['en']) : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
               const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title.en === p.gameTitle || g.title.uk === p.gameTitle);
               return (
                 <div key={p.id} className="bg-[var(--bg-secondary)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex items-center justify-between">

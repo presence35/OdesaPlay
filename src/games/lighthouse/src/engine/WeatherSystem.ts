@@ -1,15 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { Weather } from '../types';
 
-interface FogParticle {
-  x: number;
-  y: number;
-  vx: number;
-  size: number;
-  alpha: number;
-  alphaSpeed: number;
-}
-
 interface RainDrop {
   x: number;
   y: number;
@@ -22,10 +13,8 @@ export class WeatherSystem {
   container: Container;
   weather: Weather = 'clear';
 
-  private fogParticles: FogParticle[] = [];
   private rainDrops: RainDrop[] = [];
   private lightningGfx: Graphics;
-  private fogGfx: Graphics;
   private rainGfx: Graphics;
   private fogOverlay: Graphics;
   private lightningAlpha = 0;
@@ -40,9 +29,6 @@ export class WeatherSystem {
     this.fogOverlay = new Graphics();
     this.container.addChild(this.fogOverlay);
 
-    this.fogGfx = new Graphics();
-    this.container.addChild(this.fogGfx);
-
     this.rainGfx = new Graphics();
     this.container.addChild(this.rainGfx);
 
@@ -52,18 +38,6 @@ export class WeatherSystem {
 
   setWeather(w: Weather) {
     this.weather = w;
-    if (w === 'fog' && this.fogParticles.length === 0) {
-      for (let i = 0; i < 30; i++) {
-        this.fogParticles.push({
-          x: Math.random() * this.width,
-          y: Math.random() * this.height * 0.7,
-          vx: 0.2 + Math.random() * 0.3,
-          size: 40 + Math.random() * 80,
-          alpha: 0.05 + Math.random() * 0.1,
-          alphaSpeed: 0.002 + Math.random() * 0.004,
-        });
-      }
-    }
     if (w === 'storm' && this.rainDrops.length === 0) {
       for (let i = 0; i < 80; i++) {
         this.rainDrops.push({
@@ -76,8 +50,6 @@ export class WeatherSystem {
       }
     }
     if (w !== 'fog') {
-      this.fogParticles = [];
-      this.fogGfx.clear();
       this.fogOverlay.clear();
     }
     if (w !== 'storm') {
@@ -102,23 +74,14 @@ export class WeatherSystem {
     this.fogOverlay.clear();
 
     if (this.weather === 'fog') {
-      this.fogOverlay.setFillStyle({ color: 0x94a3b8, alpha: 0.12 });
-      this.fogOverlay.rect(0, 0, this.width, this.height);
+      const seaY = this.height - 60;
+      this.fogOverlay.setFillStyle({ color: 0x94a3b8, alpha: 0.8 });
+      this.fogOverlay.rect(0, 0, this.width, seaY);
       this.fogOverlay.fill();
-
-      this.fogGfx.clear();
-      for (const p of this.fogParticles) {
-        p.x += p.vx * factor;
-        p.alpha += p.alphaSpeed * factor;
-        if (p.alpha > 0.15 || p.alpha < 0.02) p.alphaSpeed *= -1;
-        if (p.x > this.width + p.size) { p.x = -p.size; p.y = Math.random() * this.height * 0.7; }
-        this.fogGfx.setFillStyle({ color: 0xcbd5e1, alpha: p.alpha });
-        this.fogGfx.ellipse(p.x, p.y, p.size, p.size * 0.4);
-        this.fogGfx.fill();
-      }
-    }
-
-    if (this.weather === 'storm') {
+      this.fogOverlay.setFillStyle({ color: 0x64748b, alpha: 0.7 });
+      this.fogOverlay.rect(0, seaY, this.width, 60);
+      this.fogOverlay.fill();
+    } else if (this.weather === 'storm') {
       this.fogOverlay.setFillStyle({ color: 0x1e3a8a, alpha: 0.3 });
       this.fogOverlay.rect(0, 0, this.width, this.height);
       this.fogOverlay.fill();
@@ -146,7 +109,6 @@ export class WeatherSystem {
   }
 
   destroy() {
-    this.fogGfx.destroy();
     this.rainGfx.destroy();
     this.lightningGfx.destroy();
     this.fogOverlay.destroy();

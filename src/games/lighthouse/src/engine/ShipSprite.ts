@@ -9,15 +9,19 @@ const SHIP_HEIGHTS: Record<string, number> = {
 
 export class ShipSprite extends Container {
   ship: Ship;
+  hullContainer: Container;
   hull: Graphics;
   freqLabel: Text;
   crashIcon: Text;
+  private labelEligibleSince: number | null = null;
 
   constructor(ship: Ship) {
     super();
     this.ship = ship;
+    this.hullContainer = new Container();
+    this.addChild(this.hullContainer);
     this.hull = new Graphics();
-    this.addChild(this.hull);
+    this.hullContainer.addChild(this.hull);
 
     this.freqLabel = new Text({
       text: '',
@@ -93,15 +97,15 @@ export class ShipSprite extends Container {
       g.rect(w * 0.6, h * 0.25, w * 0.12, h * 0.35);
       g.fill();
     } else {
-      g.moveTo(w * 0.1, h * 0.75);
-      g.lineTo(w * 0.9, h * 0.75);
-      g.quadraticCurveTo(w * 0.95, h * 0.75, w * 0.95, h * 0.5);
+      g.moveTo(w * 0.1, h);
+      g.lineTo(w * 0.9, h);
+      g.quadraticCurveTo(w * 0.95, h, w * 0.95, h * 0.5);
       g.lineTo(w * 0.8, h * 0.5);
       g.lineTo(w * 0.75, h * 0.15);
       g.lineTo(w * 0.4, h * 0.15);
       g.lineTo(w * 0.35, h * 0.5);
       g.lineTo(w * 0.1, h * 0.5);
-      g.quadraticCurveTo(w * 0.02, h * 0.5, w * 0.05, h * 0.75);
+      g.quadraticCurveTo(w * 0.02, h * 0.5, w * 0.05, h);
       g.fill();
       g.setFillStyle({ color: 0xef4444 });
       g.rect(w * 0.5, h * 0.08, w * 0.05, h * 0.35);
@@ -133,11 +137,19 @@ export class ShipSprite extends Container {
 
   updateLabel(show: boolean, freq: number, tunedFreq: number) {
     if (show && this.ship.status === 'approaching') {
-      this.freqLabel.visible = true;
-      this.freqLabel.text = freq.toFixed(1);
-      this.freqLabel.style.fill = Math.abs(freq - tunedFreq) <= 0.6 ? 0x4ade80 : 0xfacc15;
+      if (this.labelEligibleSince === null) {
+        this.labelEligibleSince = Date.now();
+      }
+      if (Date.now() - this.labelEligibleSince >= 500) {
+        this.freqLabel.visible = true;
+        this.freqLabel.text = freq.toFixed(1);
+        this.freqLabel.style.fill = Math.abs(freq - tunedFreq) <= 0.6 ? 0x4ade80 : 0xfacc15;
+      } else {
+        this.freqLabel.visible = false;
+      }
     } else {
       this.freqLabel.visible = false;
+      this.labelEligibleSince = null;
     }
   }
 }

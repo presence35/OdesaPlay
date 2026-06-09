@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Activity, Ticket, Clock, ArrowLeft, ShieldCheck, BarChart2,
   Zap, Lock, Gamepad2, Map as MapIcon, User,
-  Volume2, VolumeX, Share2, Mail, Send, Music, Sun, Moon,
+  Volume2, VolumeX, Share2, Mail, Send, Music,
   Trophy, Star, Target, Calendar, AlertTriangle, Users,
   Globe, Palette, Settings
 } from 'lucide-react';
@@ -38,7 +38,6 @@ import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } 
 import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
 import { handleFirestoreError, transliterate, getTier, triggerHaptic, calculatePlayerStats, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
-import { useTheme } from '../contexts/ThemeContext';
 import ProfileTab from './profile/ProfileTab';
 import PrizesTab from './profile/PrizesTab';
 import SettingsTab from './profile/SettingsTab';
@@ -66,13 +65,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [sfxEnabled, setSfxEnabled] = useState(() => {
     return localStorage.getItem('odesa_sfx') !== 'false';
   });
-  const { family, setFamily, mode, toggleMode } = useTheme();
   const [autoPlayMusic, setAutoPlayMusic] = useState(() => {
     return localStorage.getItem('odesa_auto_play_music') !== 'false';
   });
-  const pickTheme = (f: 'odesa' | 'ukraine') => { setFamily(f); };
   const isAdmin = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || /^bodi\d+$/i.test(profile.nickname ?? '');
-  const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume } = useAudio();
+  const { musicEnabled, setMusicEnabled, activeTracks, setActiveTracks, tracks, trackOrder, playMusic, stopMusic, skipTrack, prevTrack, currentTrack, volume, setVolume, markAdvanceIfNearEnd, consumeAdvanceFlag } = useAudio();
   const musicEnabledRef = useRef(musicEnabled);
   useEffect(() => { musicEnabledRef.current = musicEnabled; }, [musicEnabled]);
   const showSetup = true;
@@ -107,8 +104,24 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     initialView as 'home' | 'venues' | 'me' | 'leaderboard'
   );
   const [profileView, setProfileView] = useState<'profile' | 'prizes' | 'settings'>('profile');
-  const { venues: RESTAURANTS } = useVenues();
-  const [venueId, setVenueId] = useState('central_cafe');
+  const [tutorialsDismissed, setTutorialsDismissed] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('odesa_tutorials') || '[]')); } catch { return new Set<string>(); }
+  });
+  const dismissTutorial = (key: string) => {
+    const next = new Set(tutorialsDismissed);
+    next.add(key);
+    setTutorialsDismissed(next);
+    localStorage.setItem('odesa_tutorials', JSON.stringify([...next]));
+  };
+  const tutorialMessages: Record<string, string> = {
+    home: 'Tap any game card to play!',
+    me: 'Tap your avatar or nickname to edit your profile!',
+    leaderboard: 'See how you rank against other players!',
+    venues: 'Check in at venues to earn rewards!',
+  };
+  const showTutorial = tutorialMessages[view] && !tutorialsDismissed.has(view);
+    const { venues: RESTAURANTS } = useVenues();
+  const [venueId, setVenueId] = useState('');
   const [gamesList, setGamesList] = useState<Game[]>([]);
   const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [leaderboards, setLeaderboards] = useState<any[]>([]);
@@ -125,6 +138,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [gameActive, setGameActive] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [autoStartedMusic, setAutoStartedMusic] = useState(false);
+  // TEMP DISABLED: const lastPromptedPlaysRef = useRef(0);
+  const checkinPromptTriggeredRef = useRef(false);
 
   const [achievements, setAchievements] = useState<Record<string, { unlockedAt: any }>>({});
   const [streak, setStreak] = useState(0);
@@ -384,9 +399,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   useEffect(() => {
     if (!user) return;
     
-    const unsub1 = onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'venueConfigs', venueId), docSnap => {
+    const unsub1 = venueId ? onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'venueConfigs', venueId), docSnap => {
       if (docSnap.exists()) setVenueConfig(docSnap.data());
-    }, error => handleFirestoreError(error, OperationType.GET, `venueConfigs/${venueId}`));
+    }, error => handleFirestoreError(error, OperationType.GET, `venueConfigs/${venueId}`)) : () => {};
     
     const unsub2 = onSnapshot(
       query(
@@ -454,18 +469,33 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsubNotif(); unsub6(); };
   }, [user, venueId]);
 
-  // Check-in prompt logic
-  const totalPlays = userLeaderboards.reduce((acc, r) => acc + (r.playCount || 1), 0);
-  useEffect(() => {
-    if (showCheckInPrompt) return;
-    const stored = localStorage.getItem('odesa_checkins');
-    if (stored && stored !== '{}') return;
-    if (totalPlays < 3) return;
-    const lastPrompted = parseInt(localStorage.getItem('odesa_checkin_prompted_at') || '0', 10);
-    if (totalPlays - lastPrompted < 3) return;
-    setShowCheckInPrompt(true);
-    localStorage.setItem('odesa_checkin_prompted_at', String(totalPlays));
-  }, [totalPlays, showCheckInPrompt]);
+  // TEMP DISABLED: auto check-in prompt logic
+  // const totalPlays = useMemo(() =>
+  //   userLeaderboards.reduce((acc, r) => acc + (r.playCount || 0), 0),
+  //   [userLeaderboards]
+  // );
+  // TEMP DISABLED: auto check-in prompt (re-enable by uncommenting below)
+  // useEffect(() => {
+  //   if (showCheckInPrompt) return;
+  //   if (activeGame) return;
+  //   if (checkinPromptTriggeredRef.current) return;
+  //   let stored: string | null;
+  //   try { stored = localStorage.getItem('odesa_checkins'); } catch { stored = null; }
+  //   if (stored && stored !== '{}') return;
+  //   if (typeof totalPlays !== 'number' || isNaN(totalPlays) || totalPlays < 3) return;
+  //   let lp = lastPromptedPlaysRef.current;
+  //   if (lp === 0) {
+  //     try { lp = parseInt(localStorage.getItem('odesa_checkin_prompted_at') || '0', 10) || 0; } catch { lp = 0; }
+  //   }
+  //   if (typeof lp !== 'number' || isNaN(lp) || totalPlays - lp < 3) return;
+  //   lastPromptedPlaysRef.current = totalPlays;
+  //   checkinPromptTriggeredRef.current = true;
+  //   try { localStorage.setItem('odesa_checkin_prompted_at', String(totalPlays)); } catch {}
+  //   if (!('permissions' in navigator)) { setShowCheckInPrompt(true); return; }
+  //   navigator.permissions.query({ name: 'geolocation' }).then(perm => {
+  //     if (perm.state !== 'denied') setShowCheckInPrompt(true);
+  //   }).catch(() => setShowCheckInPrompt(true));
+  // }, [totalPlays, showCheckInPrompt, activeGame]);
 
   const handleCheckIn = async (venueId: string) => {
     if (!user) return;
@@ -484,6 +514,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     }, { merge: true }).catch(console.error);
     setXp(newXp);
     setShowCheckInPrompt(false);
+    checkinPromptTriggeredRef.current = false;
     showToast(t.checkinXpEarned);
   };
 
@@ -492,7 +523,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     useEffect(() => {
       // Update global Odesa mock
       if ((window as any).Odesa && (window as any).Odesa._triggerConfig) {
-        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), credits: 100 });
+        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), credits: 100, isAdmin });
       }
     }, [lang, sfxEnabled, musicEnabled, activeGame]);
 
@@ -516,13 +547,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         if (e.source) {
           (e.source as WindowProxy).postMessage({
             type: 'ODESAPLAY_CONFIG',
-            config: { lang, sfxEnabled, musicEnabled, credits: 100 }
+            config: { lang, sfxEnabled, musicEnabled, credits: 100, isAdmin }
           }, window.location.origin);
         }
         // Removed legacy iframe sync
       } else if (e.data?.type === 'ODESAPLAY_GAME_STARTED') {
         setGamePlaying(true);
         setGameActive(true);
+        if (consumeAdvanceFlag()) skipTrack();
         if (autoPlayMusic && !musicEnabled) {
           setAutoStartedMusic(true);
           setMusicEnabled(true);
@@ -537,9 +569,11 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         setGamePlaying(false);
         setGameActive(false);
         setTournamentPlayId(null);
+        markAdvanceIfNearEnd();
         
         if (e.data?.type === 'ODESAPLAY_SCORE') {
           const score = Number(e.data.score);
+          if (score <= 0) return;
           const gameId = activeGame?.id || e.data.gameId;
           const game = gamesList.find(g => g.id === gameId);
         
@@ -864,6 +898,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
   const handleWin = async (game: Game | undefined, score: number, tier: number) => {
     if (!user) return;
+    if (!venueId) return;
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const prize = venueConfig[`tier${tier}`]?.prize || 'Prize';
     const claim: Claim = { 
@@ -979,14 +1014,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   }, [activeTournaments, t]);
 
   return (
-    <div className="min-h-screen pb-32 overflow-x-hidden font-sans">
+    <div className="min-h-screen pb-32 overflow-x-hidden font-sans select-none">
       <AnimatePresence>
         {activeReward && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-0 z-[100] bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-6"
+            className="fixed inset-0 z-[100] bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-6 select-none"
           >
             <div className="w-full max-w-sm bg-gradient-to-b from-[var(--accent-bg)] to-[var(--accent-bg)]/80 text-[var(--text-on-accent)] rounded-[40px] p-8 text-center shadow-2xl relative overflow-hidden">
               <Ticket className="w-16 h-16 mx-auto mb-4" fill="currentColor" />
@@ -1011,7 +1046,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-0 z-[60] bg-[var(--bg-primary)] flex flex-col overflow-hidden overscroll-none"
+            className="fixed inset-0 z-[60] bg-[var(--bg-primary)] flex flex-col overflow-hidden overscroll-none select-none"
           >
             <header className="px-3 py-1.5 flex justify-between items-center border-b border-[var(--border-strong)] bg-[var(--bg-primary)]">
               <div className="flex items-center gap-4">
@@ -1051,7 +1086,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
 
             </header>
             <div className="flex-1 relative flex flex-col">
-              {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying)}
+              {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying, isAdmin)}
               {isWrongOrientation && (
                 <div className="absolute inset-0 z-50 bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-8 text-center">
                   <div className="text-6xl mb-6">🔄</div>
@@ -1118,19 +1153,6 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
           <img src="/images/logo_full.png" alt="OdesaPlay" className="h-8 w-auto" />
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setFamily('odesa')} className="group p-0 border-0 bg-transparent cursor-pointer">
-            <img src="/images/odesa.png" className={`w-6 h-6 transition-all rounded-sm ${family === 'odesa' ? 'ring-1 ring-[var(--btn-primary-bg)]' : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`} alt="Odesa" />
-          </button>
-          <button onClick={() => setFamily('ukraine')} className="group p-0 border-0 bg-transparent cursor-pointer">
-            <img src="/images/ukraine.png" className={`w-6 h-6 transition-all rounded-sm ${family === 'ukraine' ? 'ring-1 ring-[var(--btn-primary-bg)]' : 'opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`} alt="Ukraine" />
-          </button>
-          <button onClick={toggleMode} className={`w-6 h-6 rounded flex items-center justify-center transition-all ${mode === 'dark' ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] opacity-50 hover:opacity-80'}`}>
-            {mode === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
-          </button>
-        </div>
-
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={toggleMusic}
@@ -1153,9 +1175,16 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <AnimatePresence>
               {showCheckInPrompt && (
-                <CheckInPrompt venues={RESTAURANTS} lang={lang} onCheckin={handleCheckIn} onDismiss={() => setShowCheckInPrompt(false)} />
+                <CheckInPrompt venues={RESTAURANTS} lang={lang} onCheckin={handleCheckIn} onDismiss={() => { setShowCheckInPrompt(false); checkinPromptTriggeredRef.current = false; }} />
               )}
             </AnimatePresence>
+            {showTutorial && (
+              <div className="text-center" onClick={() => dismissTutorial('home')}>
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center text-[10px] bg-[var(--accent-bg)]/15 text-[var(--text-accent)] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm cursor-pointer">
+                  {tutorialMessages.home}
+                </motion.div>
+              </div>
+            )}
             {showSetup && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1199,7 +1228,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 <div className="space-y-3">
                   {tournamentWins.map(p => {
                     const venue = RESTAURANTS.find((v: any) => v.id === p.venueId);
-                    const venueName = venue ? venue.name[lang] : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
+                    const venueName = venue ? (venue.name[lang] || venue.name['uk'] || venue.name['en']) : (typeof p.venueId === 'string' ? p.venueId.toUpperCase().replace('_', ' ') : '');
                     const prizeGame = gamesList.find(g => g.id === p.gameTitle || g.title.en === p.gameTitle || g.title.uk === p.gameTitle);
                     return (
                       <div
@@ -1331,11 +1360,29 @@ onClick={() => {
                 </div>
               </div>
             </div>
+
+            {isAdmin && (
+              <div className="flex justify-center gap-3 pt-2">
+                <button onClick={() => setView('admin')} className="p-3 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)] shadow-lg hover:scale-105 active:scale-95 transition-all">
+                  <Activity className="w-5 h-5" />
+                </button>
+                <button onClick={() => setView('sales-tool')} className="p-3 bg-[var(--bg-secondary)] rounded-full text-[var(--text-accent)] shadow-lg hover:scale-105 active:scale-95 transition-all">
+                  <BarChart2 className="w-5 h-5" />
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
 
         {view === 'leaderboard' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {showTutorial && (
+              <div className="text-center" onClick={() => dismissTutorial('leaderboard')}>
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center text-[10px] bg-[var(--accent-bg)]/15 text-[var(--text-accent)] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm cursor-pointer">
+                  {tutorialMessages.leaderboard}
+                </motion.div>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black uppercase italic tracking-tight">{t.leaderboard}</h2>
               <div className="flex gap-1 bg-[var(--bg-secondary)] p-1 rounded-xl">
@@ -1420,6 +1467,13 @@ onClick={() => {
 
         {view === 'venues' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {showTutorial && (
+              <div className="text-center" onClick={() => dismissTutorial('venues')}>
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center text-[10px] bg-[var(--accent-bg)]/15 text-[var(--text-accent)] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm cursor-pointer">
+                  {tutorialMessages.venues}
+                </motion.div>
+              </div>
+            )}
              {/* Active Tournaments */}
              {activeTournaments.length > 0 && (
                <section>
@@ -1494,6 +1548,13 @@ onClick={() => {
 
         {view === 'me' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            {showTutorial && (
+              <div className="text-center" onClick={() => dismissTutorial('me')}>
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center text-[10px] bg-[var(--accent-bg)]/15 text-[var(--text-accent)] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm cursor-pointer">
+                  {tutorialMessages.me}
+                </motion.div>
+              </div>
+            )}
             {/* Pill-style sub-tab bar */}
             <div className="flex gap-1 bg-[var(--bg-secondary)] p-1 rounded-xl">
               <button
@@ -1522,7 +1583,6 @@ onClick={() => {
                 profile={profile}
                 t={t}
                 lang={lang}
-                isAdmin={isAdmin}
                 isEditing={isEditing}
                 editName={editName}
                 editAvatar={editAvatar}
@@ -1533,8 +1593,6 @@ onClick={() => {
                 setNameError={setNameError}
                 saveProfile={saveProfile}
                 getUserId={getUserId}
-                onNavigateAdmin={() => setView('admin')}
-                onNavigateSales={() => setView('sales-tool')}
                 userLeaderboards={userLeaderboards}
                 leaderboards={leaderboards}
                 gamesList={gamesList}
@@ -1592,7 +1650,7 @@ onClick={() => {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[var(--bg-primary)] via-[var(--bg-primary)]/90 to-transparent z-50 pointer-events-none">
         <nav className="max-w-[300px] mx-auto w-full pointer-events-auto">
-          <div className="bg-[var(--bg-primary)]/80 backdrop-blur-xl border-t-4 border-[var(--accent-bg)] rounded-full p-2 flex justify-between shadow-2xl">
+          <div className="bg-[var(--bg-primary)]/80 backdrop-blur-xl border-t-4 border-[var(--accent-bg)] rounded-full p-2 flex justify-between shadow-2xl select-none">
             <button onClick={() => setView('home')} className={`flex-1 py-2 flex flex-col items-center justify-center rounded-full transition-all ${view === 'home' ? 'bg-[var(--text-primary)]/10 text-[var(--text-accent)]' : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <Gamepad2 className="w-6 h-6 backface-hidden" />
             </button>
