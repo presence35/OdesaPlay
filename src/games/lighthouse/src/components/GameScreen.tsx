@@ -4,6 +4,7 @@ import { LighthouseView } from './LighthouseView';
 import { ControlPanel } from './ControlPanel';
 import { LighthouseEngine } from '../engine/LighthouseEngine';
 import { EngineState } from '../engine/EngineTypes';
+import { isMobileDevice } from '../../../../utils/fullscreen';
 import { audio } from '../audio';
 
 interface GameScreenProps {
@@ -32,7 +33,7 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, 
 
   const controlsRef = useRef<GameControls>({
     isLightPressed: false,
-    tunedFreq: 98.0,
+    tunedFreq: 88,
     pumpQueue: 0,
     dockTaps: 0,
     fuseFixTaps: 0,
@@ -70,7 +71,7 @@ export function GameScreen({ upgrades, onDayEnd, globalScore, totalDockedShips, 
             onDayEnd(earnings, shiftDocked);
           },
         },
-        { upgrades, globalScore, totalDockedShips }
+        { upgrades, globalScore, totalDockedShips, isMobile: isMobileDevice() }
       );
       if (!cancelled) {
         engine.start();

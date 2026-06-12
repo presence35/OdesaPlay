@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { GameControls, Upgrades } from '../types';
 import { Sun, Zap, Radio, Check, ShieldAlert, BatteryCharging } from 'lucide-react';
 import { audio } from '../audio';
@@ -17,16 +17,54 @@ interface ControlPanelProps {
   t?: any;
 }
 
+const FREQ_MIN = 80;
+const FREQ_MAX = 100;
+
 export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth, isCooledDown, score, upgrades, shipsApproaching, timeRemaining, t }: ControlPanelProps) {
   // Sync internal UI state for the radio dial
-  const [internalFreq, setInternalFreq] = React.useState(100.0);
+  const [internalFreq, setInternalFreq] = React.useState(88);
   const lastY = useRef<number | null>(null);
   const lastFreqTime = useRef(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
   // Sync back to ref when changed
   useEffect(() => {
     controlsRef.current.tunedFreq = internalFreq;
   }, [internalFreq, controlsRef]);
+
+  const freqFromPointer = useCallback((clientX: number) => {
+    const rect = sliderRef.current?.getBoundingClientRect();
+    if (!rect) return internalFreq;
+    const x = clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    return Math.round(FREQ_MIN + pct * (FREQ_MAX - FREQ_MIN));
+  }, [internalFreq]);
+
+  const playFreqBlip = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFreqTime.current > 50) {
+      audio.playRadioBlip();
+      lastFreqTime.current = now;
+    }
+  }, []);
+
+  const handleSliderPointerDown = useCallback((e: React.PointerEvent) => {
+    const freq = freqFromPointer(e.clientX);
+    setInternalFreq(freq);
+    playFreqBlip();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch (err) {
+      console.warn("setPointerCapture failed:", err);
+    }
+  }, [freqFromPointer, playFreqBlip]);
+
+  const handleSliderPointerMove = useCallback((e: React.PointerEvent) => {
+    if (e.buttons !== 1) return;
+    const freq = freqFromPointer(e.clientX);
+    setInternalFreq(freq);
+    playFreqBlip();
+  }, [freqFromPointer, playFreqBlip]);
 
   // ---- Handlers ----
   const handlePumpDown = (e: React.PointerEvent) => {
@@ -71,15 +109,6 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
     audio.playError();
   };
 
-  const handleFreqChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInternalFreq(parseFloat(e.target.value));
-    const now = Date.now();
-    if (now - lastFreqTime.current > 50) {
-      audio.playRadioBlip();
-      lastFreqTime.current = now;
-    }
-  };
-
   // Format time (ms -> M:SS)
   const totalSeconds = Math.ceil(timeRemaining / 1000);
   const m = Math.floor(totalSeconds / 60);
@@ -110,24 +139,22 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
       {/* Row 1: Radio and Dock */}
       <div className="bg-slate-900 rounded-xl p-3 flex items-center gap-3 mb-6 border border-slate-800 shadow-inner">
         <div className="font-mono text-yellow-400 font-bold w-12 text-center text-lg shadow-[0_0_10px_rgba(250,204,21,0.2)]">
-          {internalFreq.toFixed(1)}
+          {internalFreq.toFixed(0)}
         </div>
-        <div className="relative flex-1 h-8 bg-slate-800 rounded border border-slate-700 overflow-hidden flex items-center">
+        <div
+          ref={sliderRef}
+          className="relative flex-1 h-8 bg-slate-800 rounded border border-slate-700 overflow-hidden touch-none cursor-pointer select-none"
+          onPointerDown={handleSliderPointerDown}
+          onPointerMove={handleSliderPointerMove}
+        >
           <div className="absolute inset-0 flex justify-between px-2 items-center opacity-40 pointer-events-none">
              {Array.from({length: 21}).map((_, i) => (
                <div key={i} className={`w-[1px] ${i % 5 === 0 ? 'h-4 bg-slate-300' : 'h-2 bg-slate-500'}`} />
              ))}
           </div>
-          <input
-            type="range"
-            min="80.0"
-            max="100.0"
-            step="0.5"
-            value={internalFreq}
-            onChange={handleFreqChange}
-            className="w-full h-full appearance-none bg-transparent outline-none focus:outline-none relative z-10 cursor-ew-resize
-            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-1.5 [&::-webkit-slider-thumb]:h-10 [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:shadow-[0_0_12px_rgba(239,68,68,0.9)]
-            [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-1.5 [&::-moz-range-thumb]:h-10 [&::-moz-range-thumb]:bg-red-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:shadow-[0_0_12px_rgba(239,68,68,0.9)]"
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-1.5 h-10 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.9)] pointer-events-none rounded-sm"
+            style={{ left: `${((internalFreq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN)) * 100}%`, marginLeft: '-3px' }}
           />
         </div>
           <button
@@ -141,41 +168,27 @@ export function ControlPanel({ controlsRef, heat, battery, fuseBlown, fuseHealth
 
       {/* Row 2: Main Interactions (Light & Pump) */}
       <div className="flex-1 flex gap-4 min-h-[140px]">
-        <div className="flex gap-2">
-          <div className="flex flex-col items-center h-full">
-            <div className="relative w-4 flex-1 mb-1 bg-slate-900 rounded-full border border-slate-800 overflow-hidden flex flex-col justify-end">
-              <div 
-                className={`w-full transition-all duration-75 ${heat > 80 ? 'bg-red-500' : heat > 50 ? 'bg-yellow-500' : 'bg-orange-500'}`}
-                style={{ height: `${heat}%` }}
-              />
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono font-bold leading-none py-1">
-              {heat > 90 ? '!!' : '°C'}
-            </div>
-          </div>
-
+        <div 
+          className="w-24 bg-slate-900 rounded-2xl relative overflow-hidden border border-slate-800 shadow-inner flex flex-col items-center justify-center cursor-ns-resize touch-none"
+          onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={handlePumpDown}
+          onPointerMove={handlePumpMove}
+          onPointerUp={handlePumpUp}
+          onPointerLeave={handlePumpUp}
+        >
           <div 
-            className="w-24 bg-slate-900 rounded-2xl relative overflow-hidden border border-slate-800 shadow-inner flex flex-col items-center justify-center cursor-ns-resize touch-none"
-            onContextMenu={(e) => e.preventDefault()}
-            onPointerDown={handlePumpDown}
-            onPointerMove={handlePumpMove}
-            onPointerUp={handlePumpUp}
-            onPointerLeave={handlePumpUp}
-          >
-            <div 
-              className="absolute bottom-0 left-0 right-0 bg-blue-600/40 transition-all duration-100 rounded-b-xl"
-              style={{ height: `${battery}%` }}
-            />
-            {battery <= 0 && <div className="absolute inset-0 bg-red-500/15 blur-2xl animate-pulse pointer-events-none rounded-full" />}
-            <div className="z-10 flex flex-col items-center pointer-events-none">
-              <div className="w-1 h-8 border-l-2 border-r-2 border-slate-600 dotted rounded opacity-50 mb-2"></div>
-              {battery > 16 ? (
-                <span className="font-bold uppercase tracking-widest text-center text-[10px] text-slate-400 px-1">water level</span>
-              ) : (
-                <span className="font-bold uppercase tracking-widest text-center text-red-500 animate-pulse text-[20px] leading-none">Swipe<br/>Pump</span>
-              )}
-              <div className="font-mono text-xs text-white mt-1">{Math.floor(battery)}%</div>
-            </div>
+            className="absolute bottom-0 left-0 right-0 bg-blue-600/40 transition-all duration-100 rounded-b-xl"
+            style={{ height: `${battery}%` }}
+          />
+          {battery <= 0 && <div className="absolute inset-0 bg-red-500/15 blur-2xl animate-pulse pointer-events-none rounded-full" />}
+          <div className="z-10 flex flex-col items-center pointer-events-none">
+            <div className="w-1 h-8 border-l-2 border-r-2 border-slate-600 dotted rounded opacity-50 mb-2"></div>
+            {battery > 16 ? (
+              <span className="font-bold uppercase tracking-widest text-center text-[10px] text-slate-400 px-1">water level</span>
+            ) : (
+              <span className="font-bold uppercase tracking-widest text-center text-red-500 animate-pulse text-[20px] leading-none">Swipe<br/>Pump</span>
+            )}
+            <div className="font-mono text-xs text-white mt-1">{Math.floor(battery)}%</div>
           </div>
         </div>
 

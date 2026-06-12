@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import questionsData from './questions.json';
 import translationsData from './translations.json';
 import GameEndScreen from '../GameEndScreen';
+import LoadingTrident from '../../components/LoadingTrident';
 
 const CATEGORIES = ["Odesa", "Ukraine", "History", "Geography", "Culture", "Science", "Current Events", "Sports"];
 const DIFFICULTIES = ["easy", "medium", "hard"];
@@ -95,6 +96,7 @@ export default function TriviaGame() {
   const [translations, setTranslations] = useState(null);
   const [lang, setLang] = useState('en');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [splashItems, setSplashItems] = useState([]);
 
   // Filter States (Multi-select)
   const [selectedCats, setSelectedCats] = useState(CATEGORIES);
@@ -117,6 +119,7 @@ export default function TriviaGame() {
       window.Odesa.onConfig((cfg) => {
         if (cfg.lang) setLang(cfg.lang);
         if (cfg.sfxEnabled !== undefined) setSoundEnabled(cfg.sfxEnabled);
+        if (cfg.splashItems) setSplashItems(cfg.splashItems);
       });
       window.Odesa.onStop(() => {
         if (window.Odesa) window.Odesa.gameOver(scoreRef.current);
@@ -238,7 +241,7 @@ export default function TriviaGame() {
   const q = questions[currentIdx];
   const progress = questions.length ? ((currentIdx + (revealed ? 1 : 0)) / questions.length) * 100 : 0;
 
-  if (!translations) return <div style={{ color: '#e8dcc8', textAlign: 'center', paddingTop: 100 }}>Loading...</div>;
+  if (!translations) return <LoadingTrident text="Loading..." />;
 
   return (
     <div style={{
@@ -456,6 +459,33 @@ export default function TriviaGame() {
                 ▶ {t.start}
               </button>
             </div>
+            {splashItems.length > 0 && (
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "8px 4px", marginTop: 12, scrollbarWidth: "none" }}>
+                {splashItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => window.Odesa?.toggleSplashItem?.(item.id)}
+                    style={{
+                      flexShrink: 0,
+                      padding: "4px 8px",
+                      borderRadius: 8,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      background: item.visible !== false ? "rgba(200,180,100,0.25)" : "rgba(255,255,255,0.05)",
+                      color: item.visible !== false ? "#c8a860" : "rgba(255,255,255,0.3)",
+                      filter: item.visible !== false ? "none" : "grayscale(1)",
+                    }}
+                  >
+                    {item.icon} {item.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -3,6 +3,7 @@
     "id": "drones",
     "cat": "arcade",
     "title": { "en": "Russian Drones", "uk": "Російські Дрони" },
+    "desc": { "en": "Shoot down enemy drones before they reach the city!", "uk": "Збивай ворожі дрони, перш ніж вони дістануться міста!" },
     "url": "./games/drones/",
     "icon": "/images/drone.png",
     "orientation": "portrait"
@@ -11,6 +12,7 @@
     "id": "trivia",
     "cat": "history",
     "title": { "en": "Odesa & Ukraine Trivia", "uk": "Вікторина про Одесу та Україну" },
+    "desc": { "en": "Test your knowledge about Odesa and Ukraine!", "uk": "Перевір свої знання про Одесу та Україну!" },
     "url": "./games/trivia/",
     "icon": "/images/trivia.png",
     "orientation": "portrait"
@@ -19,6 +21,7 @@
     "id": "lighthouse",
     "cat": "arcade",
     "title": { "en": "Vorontsov Keeper", "uk": "Маяк Воронцова" },
+    "desc": { "en": "Defend the lighthouse from incoming threats!", "uk": "Захищай маяк від ворожих атак!" },
     "url": "./games/lighthouse/",
     "icon": "/images/lighthouse.png",
     "orientation": "portrait"
@@ -27,6 +30,7 @@
     "id": "marshrutka",
     "cat": "arcade",
     "title": { "en": "Crazy Marshrutka", "uk": "Шалена Маршрутка" },
+    "desc": { "en": "Dodge traffic in a wild marshrutka ride!", "uk": "Ухиляйся від транспорту в шаленій маршрутці!" },
     "url": "./games/marshrutka/",
     "icon": "/images/marshrutka.png",
     "orientation": "portrait"
@@ -44,6 +48,7 @@
     "id": "shooter",
     "cat": "arcade",
     "title": { "en": "Odesa Sharpshooter", "uk": "Одеський Стрілець" },
+    "desc": { "en": "Aim carefully and take your shot!", "uk": "Прицілюйся уважно та роби постріл!" },
     "url": "./games/shooter/",
     "icon": "/images/shooter.png",
     "orientation": "landscape"

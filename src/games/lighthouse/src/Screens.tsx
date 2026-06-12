@@ -1,6 +1,4 @@
 import React from 'react';
-import { Upgrades } from './types';
-import { ShieldAlert, Sun, BatteryCharging } from 'lucide-react';
 import { audio } from './audio';
 import lighthouseImg from './assets/lighthouse.png';
 
@@ -62,9 +60,10 @@ function PumpSVG() {
 interface StartScreenProps {
   onStart: () => void;
   t: any;
+  splashItems?: any[];
 }
 
-export function StartScreen({ onStart, t }: StartScreenProps) {
+export function StartScreen({ onStart, t, splashItems }: StartScreenProps) {
   return (
     <div className="flex-1 flex flex-col items-center p-6 text-center z-10 relative pt-12">
       {/* Visual Accent */}
@@ -107,15 +106,30 @@ export function StartScreen({ onStart, t }: StartScreenProps) {
         {t.beginShift}
       </button>
 
+      {splashItems && splashItems.length > 0 && (
+        <div className="relative z-10 w-full flex gap-1.5 overflow-x-auto px-1 py-1 mb-4" style={{ scrollbarWidth: 'none' }}>
+          {splashItems.map((item: any) => (
+            <button
+              key={item.id}
+              onClick={() => (window as any).Odesa?.toggleSplashItem?.(item.id)}
+              className={`flex-shrink-0 px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                item.visible !== false
+                  ? 'bg-yellow-500/20 text-yellow-300'
+                  : 'bg-slate-800/50 text-slate-600 grayscale'
+              }`}
+            >
+              {item.icon} {item.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <img src={lighthouseImg} alt="" className="block w-auto h-[35vh] object-contain mx-auto" />
     </div>
   );
 }
 
 interface UpgradeScreenProps {
-  score: number;
-  upgrades: Upgrades;
-  onBuy: (key: keyof Upgrades, cost: number) => void;
   onNextDay: () => void;
   dayCount: number;
   lastEarnings: number;
@@ -158,83 +172,27 @@ export function GameOverScreen({ score, totalDockedShips, dayCount, onRestart, t
   );
 }
 
-export function UpgradeScreen({ score, upgrades, onBuy, onNextDay, dayCount, lastEarnings, t }: UpgradeScreenProps & { t?: any }) {
-  const shopItems: { key: keyof Upgrades; name: string; desc: string; cost: number; icon: React.ReactNode }[] = [
-    {
-      key: 'autoFoghorn',
-      name: 'Auto Foghorn',
-      desc: 'Slows down lost ships automatically during deep fog cover.',
-      cost: 500,
-      icon: <ShieldAlert className="w-5 h-5 text-yellow-500" />
-    },
-    {
-      key: 'tungstenFilament',
-      name: 'Tungsten Bulb',
-      desc: 'High resilience filament. Slows down main light overheat rate.',
-      cost: 800,
-      icon: <Sun className="w-5 h-5 text-white" />
-    },
-    {
-      key: 'solarBackup',
-      name: 'Storm Battery',
-      desc: 'Preserves power drain specifically when navigating through storms.',
-      cost: 1200,
-      icon: <BatteryCharging className="w-5 h-5 text-blue-400" />
-    }
-  ];
-
+export function UpgradeScreen({ onNextDay, dayCount, lastEarnings, t }: UpgradeScreenProps & { t?: any }) {
   return (
     <div className="flex-1 flex flex-col bg-[#0A1128] p-6 z-10 overflow-y-auto">
-      <div className="mt-8 text-center mb-8">
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
         <h2 className="font-display text-2xl font-bold text-white uppercase tracking-wider">{t?.shiftComplete || 'Shift Complete'}</h2>
-        <p className="text-slate-400">{t?.day || 'Day'} {dayCount}</p>
-        <div className={`mt-4 inline-block px-6 py-2 rounded-full border font-mono text-xl ${
+        <p className="text-slate-400 mt-2">{t?.day || 'Day'} {dayCount}</p>
+        <div className={`mt-6 inline-block px-8 py-3 rounded-full border font-mono text-2xl ${
           lastEarnings >= 0 
             ? 'bg-green-900/40 text-green-400 border-green-800/50' 
             : 'bg-red-900/40 text-red-400 border-red-800/50'
         }`}>
           {lastEarnings > 0 ? '+' : ''}{lastEarnings}
         </div>
-      </div>
-
-      <div className="flex justify-between items-end mb-4 px-2 border-b border-slate-800 pb-4">
-          <span className="text-slate-400 uppercase text-xs font-bold tracking-widest">{t?.availablePoints || 'Available Points'}</span>
-        <span className="text-3xl text-white font-mono font-bold">{score}</span>
-      </div>
-
-      <div className="flex-1 space-y-4">
-        {shopItems.map(item => {
-          const owned = upgrades[item.key];
-          const canAfford = score >= item.cost;
-          return (
-            <div key={item.key} className={`p-4 rounded-xl border flex items-center gap-4 ${owned ? 'bg-slate-800/30 border-yellow-900/30 opacity-70' : 'bg-slate-900 border-slate-800'}`}>
-              <div className="p-3 bg-slate-950 rounded-lg">{item.icon}</div>
-              <div className="flex-1 text-left">
-                <h3 className="text-white font-bold">{item.name}</h3>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">{item.desc}</p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                {!owned && <span className="font-mono text-xs font-bold text-slate-300">{item.cost}</span>}
-                <button
-                  disabled={owned || !canAfford}
-                  onClick={() => onBuy(item.key, item.cost)}
-                  className={`px-4 py-2 rounded font-bold text-xs uppercase tracking-wider
-                    ${owned ? 'bg-yellow-900/20 text-yellow-600 border border-yellow-900/30' 
-                    : canAfford ? 'bg-white text-[#0A1128] active:scale-95' 
-                    : 'bg-slate-800 text-slate-600'}
-                  `}
-                >
-                  {owned ? (t?.owned || 'Owned') : (t?.get || 'Get')}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        <p className="text-slate-500 text-xs mt-8 uppercase tracking-widest">
+          {t?.marketHint || 'Buy permanent upgrades in the Market with ⭐'}
+        </p>
       </div>
 
       <button
         onClick={onNextDay}
-        className="w-full mt-6 py-4 bg-yellow-500 text-slate-950 font-display font-bold uppercase tracking-widest rounded-full uppercase shadow-[0_4px_20px_rgba(234,179,8,0.3)] active:bg-yellow-400"
+        className="w-full py-4 bg-yellow-500 text-slate-950 font-display font-bold uppercase tracking-widest rounded-full shadow-[0_4px_20px_rgba(234,179,8,0.3)] active:bg-yellow-400"
       >
         {t?.startNextShift || 'Start Next Shift'}
       </button>

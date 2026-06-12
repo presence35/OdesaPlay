@@ -13,8 +13,6 @@ export class ShipSprite extends Container {
   hull: Graphics;
   freqLabel: Text;
   crashIcon: Text;
-  private labelEligibleSince: number | null = null;
-
   constructor(ship: Ship) {
     super();
     this.ship = ship;
@@ -26,14 +24,14 @@ export class ShipSprite extends Container {
     this.freqLabel = new Text({
       text: '',
       style: {
-        fontSize: 11,
+        fontSize: 17,
         fontFamily: 'monospace',
         fill: 0xfacc15,
         fontWeight: 'bold',
       },
     });
     this.freqLabel.anchor.set(0.5, 0);
-    this.freqLabel.y = -18;
+    this.freqLabel.y = -22;
     this.addChild(this.freqLabel);
 
     this.crashIcon = new Text({
@@ -137,19 +135,11 @@ export class ShipSprite extends Container {
 
   updateLabel(show: boolean, freq: number, tunedFreq: number) {
     if (show && this.ship.status === 'approaching') {
-      if (this.labelEligibleSince === null) {
-        this.labelEligibleSince = Date.now();
-      }
-      if (Date.now() - this.labelEligibleSince >= 500) {
-        this.freqLabel.visible = true;
-        this.freqLabel.text = freq.toFixed(1);
-        this.freqLabel.style.fill = Math.abs(freq - tunedFreq) <= 0.6 ? 0x4ade80 : 0xfacc15;
-      } else {
-        this.freqLabel.visible = false;
-      }
+      this.freqLabel.visible = true;
+      this.freqLabel.text = freq.toFixed(0);
+      this.freqLabel.style.fill = Math.abs(freq - tunedFreq) <= 0.6 ? 0x4ade80 : 0xfacc15;
     } else {
       this.freqLabel.visible = false;
-      this.labelEligibleSince = null;
     }
   }
 }

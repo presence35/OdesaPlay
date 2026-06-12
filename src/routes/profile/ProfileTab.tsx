@@ -2,19 +2,20 @@ import { motion } from 'motion/react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { X, Flame, Trophy, Share2, Award, Package } from 'lucide-react';
 import EasterEggSection from '../../components/EasterEggSection';
-import { BADGE_DEFINITIONS } from '../gamehub/constants';
-import { Game } from '../gamehub/types';
-import { getLevel, getXpProgress, getXpForNextLevel, getTimeAgo, shareScore } from '../gamehub/utils';
+import { BADGE_DEFINITIONS, SHOP_ITEMS, ShopItem } from '../gamehub/constants';
+import { Game, InventoryItem } from '../gamehub/types';
+import { getLevel, getStarsProgress, getStarsForNextLevel, getTimeAgo, shareScore, calculateSellValue } from '../gamehub/utils';
 import { getUserId } from '../../firebase';
 import { Language } from '../../language';
 
 const AVATARS = ["⚓", "🛸", "⚔️", "🥟", "🥨", "🐈", "🍉", "🎖️"];
 
 function Media({ src, imgClass, textClass }: { src: string; imgClass?: string; textClass?: string }) {
-  if (src.startsWith('/') || src.startsWith('.')) {
-    return <img src={src} alt="" className={`object-contain ${imgClass || ''}`} />;
+  const resolved = src || '⚓';
+  if (resolved.startsWith('/') || resolved.startsWith('.')) {
+    return <img src={resolved} alt="" className={`object-contain ${imgClass || ''}`} />;
   }
-  return <span className={textClass}>{src}</span>;
+  return <span className={textClass}>{resolved}</span>;
 }
 
 interface ProfileTabProps {
@@ -38,11 +39,13 @@ interface ProfileTabProps {
   achievements: Record<string, { unlockedAt: any }>;
   streak: number;
   xp: number;
+  inventory: Record<string, Record<string, InventoryItem>>;
   recruitCount: number;
   eggFindings: Set<string>;
   selectedBadge: string | null;
   newlyUnlockedBadges: string[];
   onSelectBadge: (id: string | null) => void;
+  onSell: (item: ShopItem) => void;
 }
 
 export default function ProfileTab({
@@ -66,12 +69,22 @@ export default function ProfileTab({
   achievements,
   streak,
   xp,
+  inventory,
   recruitCount,
   eggFindings,
   selectedBadge,
   newlyUnlockedBadges,
   onSelectBadge,
+  onSell,
 }: ProfileTabProps) {
+
+  const getSellValue = (item: ShopItem) => {
+    for (const gid of item.gameIds) {
+      const entry = inventory[gid]?.[item.id];
+      if (entry) return calculateSellValue(entry.paidCost, entry.purchasedAt);
+    }
+    return null;
+  };
 
   return (
     <>
@@ -84,7 +97,7 @@ export default function ProfileTab({
               onClick={() => setIsEditing(true)}
             >
               <div className="w-full h-full bg-[var(--bg-primary)] rounded-full flex items-center justify-center">
-                <Media src={profile.avatar} imgClass="w-10 h-10" textClass="text-4xl" />
+                <Media src={profile.avatar || '⚓'} imgClass="w-10 h-10" textClass="text-4xl" />
               </div>
             </div>
             <div
@@ -134,10 +147,10 @@ export default function ProfileTab({
               <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-[var(--accent-bg)] to-[var(--accent-bg)] rounded-full transition-all duration-500"
-                  style={{ width: `${getXpProgress(xp)}%` }}
+                  style={{ width: `${getStarsProgress(xp)}%` }}
                 />
               </div>
-              <div className="text-[8px] font-black text-[var(--text-muted)] tracking-tighter leading-none mt-1">{getXpForNextLevel(xp) - xp} {t.xpToNext}</div>
+              <div className="text-[8px] font-black text-[var(--text-muted)] tracking-tighter leading-none mt-1">{getStarsForNextLevel(xp) - xp} {t.starsToNext}</div>
             </div>
           </div>
 
@@ -177,7 +190,7 @@ export default function ProfileTab({
           {/* Badges */}
           <div className="space-y-4">
             <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-              <Award className="w-4 h-4 text-[var(--text-accent)]" /> {t.badges}
+              <Award className="w-4 h-4 text-[var(--text-accent)]" /> {t.badges} ({Object.keys(achievements).length} OF {BADGE_DEFINITIONS.length})
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {BADGE_DEFINITIONS.map(badge => {
@@ -245,7 +258,33 @@ export default function ProfileTab({
             <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
               <Package className="w-4 h-4 text-[var(--text-accent)]" /> {t.items}
             </h3>
-            <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.itemsPlaceholder}</div>
+            {(() => {
+              const ownedItems = SHOP_ITEMS.filter(item => item.gameIds.some(gid => inventory[gid]?.[item.id]));
+              if (ownedItems.length === 0) {
+                return <div className="text-center text-xs text-[var(--text-subtle)] uppercase font-bold tracking-widest py-4 bg-[var(--bg-secondary)]/30 rounded-2xl border border-dashed border-[var(--border-strong)]">{t.itemsPlaceholder}</div>;
+              }
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  {ownedItems.map(item => {
+                    const sv = getSellValue(item);
+                    return (
+                      <div key={item.id} className="flex items-center gap-2 p-3 bg-[var(--bg-secondary)]/30 rounded-xl border border-[var(--border-default)]">
+                        <span className="text-xl">{item.icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-bold text-[var(--text-primary)] truncate">{item.name[lang as 'en' | 'uk'] || item.name.en}</div>
+                          <div className="text-[9px] text-[var(--text-muted)] truncate">{item.desc[lang as 'en' | 'uk'] || item.desc.en}</div>
+                          {sv && (
+                            <div className="text-[8px] text-[var(--text-subtle)] font-bold uppercase tracking-wider mt-0.5">
+                              {item.cost}⭐ → {t.recoup}: {sv.refund}⭐
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Easter Eggs */}

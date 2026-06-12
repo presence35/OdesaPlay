@@ -7,6 +7,7 @@ import { TRANSLATIONS, Lang } from './translations';
 import { showToast } from '../../components/Toast';
 import { ObjectPool } from '../../utils/objectPool';
 import GameEndScreen from '../GameEndScreen';
+import LoadingTrident from '../../components/LoadingTrident';
 
 const LOGICAL_WIDTH = 1280;
 const LOGICAL_HEIGHT = 720;
@@ -36,6 +37,7 @@ export default function App() {
   
   const [peace, setPeace] = useState(false);
   const [started, setStarted] = useState(false);
+  const [splashItems, setSplashItems] = useState<any[]>([]);
   const [timerUrgent, setTimerUrgent] = useState(false);
   const startedRef = useRef(false);
   const recoveringRef = useRef(false);
@@ -91,6 +93,7 @@ export default function App() {
       if (config) {
         setLang(config.lang === 'uk' ? 'uk' : 'en');
         setPeace(config.peace === true);
+        if (config.splashItems) setSplashItems(config.splashItems);
         if (typeof config.sfxEnabled === 'boolean') {
           sounds.setSfxEnabled(config.sfxEnabled);
         }
@@ -100,6 +103,7 @@ export default function App() {
       window.Odesa.onConfig((config: any) => {
         setLang(config.lang === 'uk' ? 'uk' : 'en');
         setPeace(config.peace === true);
+        if (config.splashItems) setSplashItems(config.splashItems);
         if (typeof config.sfxEnabled === 'boolean') {
           sounds.setSfxEnabled(config.sfxEnabled);
         }
@@ -180,19 +184,31 @@ export default function App() {
       };
 
       app = new PIXI.Application();
-      await app.init({
-        resizeTo: parent,
-        autoDensity: true,
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
-        antialias: false,
-        backgroundAlpha: 0,
-        premultipliedAlpha: false,
-      });
-      appInitialized = true;
-
-      if (isDestroyed) {
-        app.destroy(true, { children: true });
-        return;
+      let initErr: any;
+      try {
+        await app.init({
+          resizeTo: parent,
+          autoDensity: true,
+          resolution: Math.min(window.devicePixelRatio || 1, 2),
+          antialias: false,
+          backgroundAlpha: 0,
+          premultipliedAlpha: false,
+        });
+      } catch (e) {
+        initErr = e;
+      }
+      if (!initErr) {
+        appInitialized = true;
+        if (isDestroyed) { app.destroy(true, { children: true }); return; }
+      } else {
+        app = new PIXI.Application();
+        await app.init({
+          resizeTo: parent,
+          preference: 'canvas',
+          backgroundAlpha: 0,
+        });
+        appInitialized = true;
+        if (isDestroyed) { app.destroy(true, { children: true }); return; }
       }
 
       parent.appendChild(app.canvas);
@@ -709,7 +725,8 @@ export default function App() {
   }, [pixiVersion]);
 
   const spawnVehicle = (state: GameState, w: number, h: number) => {
-    const isNoisy = state.vehicles.length === 0 ? true : Math.random() > 0.5;
+    const activeNoisy = state.vehicles.filter(v => v.status === 'normal' && v.isNoisy).length;
+    const isNoisy = activeNoisy === 0 ? true : Math.random() > 0.5;
     const isSilent = !isNoisy && Math.random() > 0.5;
     const isMotorcycle = Math.random() > 0.5;
     
@@ -788,8 +805,10 @@ export default function App() {
       bananaHits: 0,
       lane: lane as 0 | 1
     });
-    if (isMotorcycle) sounds.playMotorcycleWizz();
-    else sounds.playCarPassing();
+    if (isNoisy) {
+      if (isMotorcycle) sounds.playMotorcycleWizz();
+      else sounds.playCarPassing();
+    }
   };
 
   const spawnProjectile = (type: string, startX: number, startY: number, targetX: number, targetY: number) => {
@@ -963,8 +982,8 @@ export default function App() {
       onPointerCancel={handlePointerUp}
     >
       <div className="fixed inset-0 z-[100] hidden portrait:flex flex-col items-center justify-center bg-black text-white p-8 text-center">
-        <h2 className="text-3xl font-bold mb-4">{t.rotateDevice}</h2>
-        <p className="text-xl opacity-80">{t.rotateDesc}</p>
+        <div className="text-6xl mb-6 animate-spin-slow">🔄</div>
+        <h2 className="text-2xl font-bold">{t.rotateDevice}</h2>
       </div>
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 md:-translate-x-0 md:left-4 p-2 px-4 bg-black/60 rounded-xl backdrop-blur-sm border border-white/20 select-none pointer-events-none flex flex-col items-center min-w-[120px]">
@@ -1054,17 +1073,31 @@ export default function App() {
               {t.play}
             </button>
           ) : (
-            <div className="px-8 py-4 bg-gray-500 text-black rounded-xl text-2xl font-bold">
-              Loading Assets...
+            <LoadingTrident text="Loading Assets..." />
+          )}
+          {splashItems.length > 0 && (
+            <div className="mt-4 flex gap-1.5 overflow-x-auto px-2 py-1 max-w-[80vw]" style={{ scrollbarWidth: 'none' }}>
+              {splashItems.map((item: any) => (
+                <button
+                  key={item.id}
+                  onClick={() => window.Odesa?.toggleSplashItem?.(item.id)}
+                  className={`flex-shrink-0 px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                    item.visible !== false
+                      ? 'bg-yellow-500/30 text-yellow-200'
+                      : 'bg-white/10 text-white/40 grayscale'
+                  }`}
+                >
+                  {item.icon} {item.name}
+                </button>
+              ))}
             </div>
           )}
         </div>
       )}
 
       {recovering && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
-          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-6" />
-          <p className="text-2xl font-bold">{t.restoring}</p>
+        <div className="absolute inset-0 bg-black/70 z-50">
+          <LoadingTrident text={t.restoring} />
         </div>
       )}
     </div>

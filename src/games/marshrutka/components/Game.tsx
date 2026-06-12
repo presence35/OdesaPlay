@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, AlertOctagon, ChevronsUp, ChevronsLeft } from 'lucide-react';
 import { TRANSLATIONS } from '../translations';
+import LoadingTrident from '../../../components/LoadingTrident';
 import { getAudioContext, resumeAudioContext } from '../../../utils/audioContext';
 import GameEndScreen from '../../GameEndScreen';
 
@@ -756,8 +757,10 @@ export default function Game() {
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [activeRoute, setActiveRoute] = useState(ROUTES[0]);
-  const [difficulty, setDifficulty] = useState<'slow' | 'fast'>('slow');
+  const [splashItems, setSplashItems] = useState<any[]>([]);
   const [swipeHint, setSwipeHint] = useState(true);
+  const [thumbWarning, setThumbWarning] = useState(false);
+  const [boostPopup, setBoostPopup] = useState('');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameContainerRef = useRef<HTMLDivElement>(null);
@@ -785,6 +788,13 @@ export default function Game() {
   const gameHeightRef = useRef(600);
   const laneLimitRef = useRef(0);
   const busYRef = useRef(500);
+  const lastPointerY = useRef<number | null>(null);
+  const lastPointerTime = useRef(0);
+  const boostActiveRef = useRef(false);
+  const boostEndTimeRef = useRef(0);
+  const boostLevelRef = useRef(0);
+  const isThumbAboveBusRef = useRef(false);
+  const magnetRef = useRef(false);
   const skyGradRef = useRef<CanvasGradient | null>(null);
   const roadGradRef = useRef<CanvasGradient | null>(null);
   const curbGradLRef = useRef<CanvasGradient | null>(null);
@@ -801,6 +811,14 @@ export default function Game() {
           if (config.sfxEnabled && ctx.state === 'suspended') ctx.resume();
         }
       }
+      if (config.inventory?.marshrutka) {
+        const items = config.inventory.marshrutka;
+        if (items.boost2) boostLevelRef.current = 2;
+        if (items.boost5) boostLevelRef.current = 5;
+        if (items.boost10) boostLevelRef.current = 10;
+        if (items.magnet) magnetRef.current = true;
+      }
+      if (config.splashItems) setSplashItems(config.splashItems);
     };
 
     if (window.Odesa) {
@@ -1001,6 +1019,12 @@ export default function Game() {
     doorOpenedTimeRef.current = null;
     distanceRef.current = 0;
     maxScoreRef.current = 0;
+    boostActiveRef.current = false;
+    boostEndTimeRef.current = 0;
+    lastPointerY.current = null;
+    isThumbAboveBusRef.current = false;
+    setThumbWarning(false);
+    setBoostPopup('');
     spawnTimers.current = { pothole: 0, bike: 0, babushka: 0, scenery: 0, passenger: 0 };
   };
 
@@ -1036,6 +1060,38 @@ export default function Game() {
     const x = e.clientX - rect.left - rect.width / 2;
     const busMoveLimit = (rect.width - 160) / 2;
     busXRef.current = Math.max(-busMoveLimit, Math.min(busMoveLimit, x));
+
+    // Y tracking for thumb-above-bus warning
+    const canvasY = e.clientY - rect.top;
+    const busScreenY = busYRef.current;
+    const aboveBus = canvasY < busScreenY - 60;
+    if (aboveBus !== isThumbAboveBusRef.current) {
+      isThumbAboveBusRef.current = aboveBus;
+      setThumbWarning(aboveBus);
+    }
+
+    // Velocity tracking for swipe-up boost
+    if (lastPointerY.current !== null) {
+      const dt = e.timeStamp - lastPointerTime.current;
+      const dy = lastPointerY.current - e.clientY;
+      if (dt > 0 && dt < 200) {
+        const velocity = (dy / dt) * 1000;
+        if (velocity > 500 && !boostActiveRef.current && boostLevelRef.current > 0) {
+          boostActiveRef.current = true;
+          boostEndTimeRef.current = performance.now() + 1000;
+          const tier = boostLevelRef.current;
+          const fireEmoji = tier >= 10 ? '🔥🔥🔥' : tier >= 5 ? '🔥🔥' : '🔥';
+          setBoostPopup(`+${tier}km/h ${fireEmoji}`);
+          setTimeout(() => setBoostPopup(''), 1200);
+        }
+      }
+    }
+    lastPointerY.current = e.clientY;
+    lastPointerTime.current = e.timeStamp;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    lastPointerY.current = null;
   };
 
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
@@ -1188,6 +1244,45 @@ export default function Game() {
     }
     ctx.globalAlpha = 1;
 
+    // Persistent thumb warning
+    if (isThumbAboveBusRef.current && gameState === 'playing') {
+      const warningText = t.slideFingerDown || 'Slide finger down';
+      ctx.globalAlpha = 0.85;
+      ctx.font = 'bold 18px sans-serif';
+      const tw = ctx.measureText(warningText).width;
+      const pw = tw + 24;
+      ctx.fillStyle = '#000000';
+      roundRect(ctx, -pw / 2, h * 0.15 - 18, pw, 36, 20);
+      ctx.fill();
+      ctx.strokeStyle = '#facc1566';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#facc15';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(warningText, 0, h * 0.15);
+      ctx.globalAlpha = 1;
+    }
+
+    // Speed boost popup
+    if (boostPopup && gameState === 'playing') {
+      ctx.globalAlpha = 0.9;
+      ctx.font = 'bold 20px sans-serif';
+      const bw = ctx.measureText(boostPopup).width;
+      const pw = bw + 24;
+      ctx.fillStyle = '#000000';
+      roundRect(ctx, -pw / 2, h * 0.4 - 18, pw, 36, 20);
+      ctx.fill();
+      ctx.strokeStyle = '#f9731666';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#f97316';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(boostPopup, 0, h * 0.4);
+      ctx.globalAlpha = 1;
+    }
+
     ctx.restore();
   };
 
@@ -1199,17 +1294,26 @@ export default function Game() {
     if (lastTimeRef.current === 0) {
       lastTimeRef.current = time;
       spawnTimers.current.pothole = time;
-      spawnTimers.current.babushka = time - (difficulty === 'fast' ? 1800 : 2500) + 200;
-      spawnTimers.current.bike = time - (difficulty === 'fast' ? 6000 : 8000) + 200;
-      spawnTimers.current.passenger = time - (difficulty === 'fast' ? 2200 : 3500) + 200;
+      spawnTimers.current.babushka = time - 2500 + 200;
+      spawnTimers.current.bike = time - 8000 + 200;
+      spawnTimers.current.passenger = time - 3500 + 200;
       spawnTimers.current.scenery = time - 1000 + 200;
     }
     const deltaTime = Math.min(time - lastTimeRef.current, 100);
     lastTimeRef.current = time;
     const dt = deltaTime / 1000;
 
-    const roadSpeed = difficulty === 'fast' ? 320 : 220;
-    const bikeSpeed = difficulty === 'fast' ? 220 : 160;
+    const baseSpeed = 220;
+    const permBoost = boostLevelRef.current;
+    let roadSpeed = baseSpeed + permBoost * 8;
+    if (boostActiveRef.current) {
+      if (performance.now() >= boostEndTimeRef.current) {
+        boostActiveRef.current = false;
+      } else {
+        roadSpeed += (boostLevelRef.current || 2) * 12;
+      }
+    }
+    const bikeSpeed = 160;
     const frameMove = roadSpeed * dt;
 
     distanceRef.current += frameMove;
@@ -1517,8 +1621,11 @@ export default function Game() {
       }
     }
 
-    if (time - spawnTimers.current.pothole > (difficulty === 'fast' ? 1000 : 1500)) {
-      if (Math.random() < 0.9 && objectIdRef.current >= 5) {
+    if (time - spawnTimers.current.pothole > 2000) {
+      const gameTime = distanceRef.current / roadSpeed;
+      const potholeChance = Math.min(0.55, 0.2 + gameTime * 0.003);
+      const recentPotholes = next.filter(o => o.type === 'pothole').length;
+      if (Math.random() < potholeChance && objectIdRef.current >= 15 && recentPotholes < 4) {
         next.push({
           id: objectIdRef.current++,
           type: 'pothole',
@@ -1530,7 +1637,7 @@ export default function Game() {
       spawnTimers.current.pothole = time;
     }
 
-    if (time - spawnTimers.current.babushka > (difficulty === 'fast' ? 1800 : 2500)) {
+    if (time - spawnTimers.current.babushka > 2500) {
       if (Math.random() < 0.95) {
         const side = Math.random() > 0.5 ? 'left' : 'right';
         const bX = side === 'left' ? -gameWidth / 2 + 30 : gameWidth / 2 - 30;
@@ -1546,7 +1653,7 @@ export default function Game() {
       spawnTimers.current.babushka = time;
     }
 
-    if (time - spawnTimers.current.bike > (difficulty === 'fast' ? 6000 : 8000)) {
+    if (time - spawnTimers.current.bike > 8000) {
       if (Math.random() < 0.5 && !next.some(o => o.type === 'delivery_bike')) {
         const foodType = Math.random() > 0.5 ? 'pizza' : 'shawarma';
         next.push({
@@ -1560,7 +1667,7 @@ export default function Game() {
       spawnTimers.current.bike = time;
     }
 
-    if (time - spawnTimers.current.passenger > (difficulty === 'fast' ? 2200 : 3500)) {
+    if (time - spawnTimers.current.passenger > 3500) {
       if (Math.random() < 0.85) {
         const side = Math.random() > 0.5 ? 'left' : 'right';
         const bX = side === 'left' ? -gameWidth / 2 + 50 : gameWidth / 2 - 50;
@@ -1666,12 +1773,12 @@ export default function Game() {
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [gameState, lang, difficulty]);
+  }, [gameState, lang]);
 
   const t = TRANSLATIONS[lang];
 
   if (!isReady) {
-    return <div className="fixed inset-0 bg-slate-900" />;
+    return <LoadingTrident className="fixed inset-0 bg-slate-900" />;
   }
 
   return (
@@ -1734,6 +1841,7 @@ export default function Game() {
         ref={gameContainerRef}
         onPointerMove={handlePointerMove}
         onPointerDown={handlePointerMove}
+        onPointerUp={handlePointerUp}
         className="relative w-full max-w-lg h-full touch-none overflow-hidden"
         style={{ cursor: gameState === 'playing' ? 'none' : 'default' }}
       >
@@ -1782,21 +1890,7 @@ export default function Game() {
               <p className="text-xs sm:text-sm font-bold mb-4 drop-shadow-md uppercase tracking-wide text-white">
                 {t.pickUpPassengers} • {t.avoidPotholes} • {t.collectFlowers}
               </p>
-              <div
-                onClick={() => setDifficulty(prev => prev === 'slow' ? 'fast' : 'slow')}
-                className="flex bg-slate-700/50 p-1 rounded-2xl mb-6 w-full max-w-[220px] relative cursor-pointer ring-2 ring-white/10 overflow-hidden"
-              >
-                <div
-                  className="absolute top-1 bottom-1 w-[calc(50%-6px)] bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl transition-transform duration-300 shadow-lg transform-gpu"
-                  style={{
-                    left: '4px',
-                    transform: difficulty === 'fast' ? 'translateX(100%)' : 'translateX(0)',
-                    width: 'calc(50% - 4px)'
-                  }}
-                />
-                <div className={`flex-1 text-center py-2.5 z-10 text-sm font-bold transition-colors duration-200 ${difficulty === 'slow' ? 'text-white' : 'text-white/60'}`}>{t.slow || 'SLOW'}</div>
-                <div className={`flex-1 text-center py-2.5 z-10 text-sm font-bold transition-colors duration-200 ${difficulty === 'fast' ? 'text-white' : 'text-white/60'}`}>{t.fast || 'FAST'}</div>
-              </div>
+
               <div className="flex flex-col gap-2 mb-6 bg-slate-800/50 p-4 rounded-2xl border border-white/10 backdrop-blur-sm w-full">
                 <div className="grid grid-cols-4 gap-4 text-white">
                   <div className="flex flex-col gap-4">
@@ -1874,6 +1968,23 @@ export default function Game() {
                   </button>
                 ))}
               </div>
+              {splashItems.length > 0 && (
+                <div className="mt-3 w-full flex gap-1.5 overflow-x-auto px-1 py-1" style={{ scrollbarWidth: 'none' }}>
+                  {splashItems.map((item: any) => (
+                    <button
+                      key={item.id}
+                      onClick={() => window.Odesa?.toggleSplashItem?.(item.id)}
+                      className={`flex-shrink-0 px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                        item.visible !== false
+                          ? 'bg-blue-500/30 text-blue-200'
+                          : 'bg-slate-700/50 text-slate-500 grayscale'
+                      }`}
+                    >
+                      {item.icon} {item.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

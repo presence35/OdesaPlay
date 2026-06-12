@@ -213,8 +213,8 @@ export class LighthouseEngine {
 
     const segs: { weather: Weather; duration: number }[] = [];
 
-    // First segment: always clear, at least 20s (up to 40s)
-    const firstClear = 20000 + Math.random() * Math.min(20000, Math.max(0, clearTotal - 20000));
+    // First segment: always clear, at least 60s (up to 90s)
+    const firstClear = 60000 + Math.random() * Math.min(30000, Math.max(0, clearTotal - 60000));
     segs.push({ weather: 'clear', duration: firstClear });
 
     const remainingClear = clearTotal - firstClear;
@@ -232,18 +232,21 @@ export class LighthouseEngine {
     };
 
     if (remainingClear > 0) addSegs('clear', remainingClear);
+    const fogSegStart = segs.length;
     addSegs('fog', fogTotal);
+    const stormSegStart = segs.length;
     addSegs('storm', stormTotal);
 
-    // Shuffle all except the first segment
+    // Shuffle clear+fog segments (except first), append storm at the end
     const head = segs[0];
-    const tail = segs.slice(1);
-    for (let i = tail.length - 1; i > 0; i--) {
+    const clearFogTail = segs.slice(1, stormSegStart);
+    const stormSegs = segs.slice(stormSegStart);
+    for (let i = clearFogTail.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [tail[i], tail[j]] = [tail[j], tail[i]];
+      [clearFogTail[i], clearFogTail[j]] = [clearFogTail[j], clearFogTail[i]];
     }
 
-    this.weatherSchedule = [head, ...tail];
+    this.weatherSchedule = [head, ...clearFogTail, ...stormSegs];
 
     // Ensure total matches DAY_DURATION (last segment absorbs rounding)
     const sumDur = this.weatherSchedule.reduce((a, s) => a + s.duration, 0);
@@ -376,7 +379,7 @@ export class LighthouseEngine {
     this.processShips(c, upgrades, totalDockedShips, globalScore, frameScale);
 
     // --- Spawn ---
-    this.shipSpawnCooldown = Math.max(0, this.shipSpawnCooldown - TICK_MS * frameScale);
+    this.shipSpawnCooldown = Math.max(0, this.shipSpawnCooldown - dt);
     this.spawnShips();
 
     // --- Reset action queues ---
@@ -413,9 +416,9 @@ export class LighthouseEngine {
     if (c.dockTaps > 0) {
       const dockable = s.ships.filter(ship => {
         if (ship.status !== 'approaching') return false;
-        if (ship.distance <= 0 || ship.distance >= 85) return false;
-        if (weather === 'clear' || weather === 'fog') return beamEffective ? true : ship.distance < 65;
-        if (weather === 'storm') return s.lightOn || lightningReveal;
+        if (ship.distance <= 0) return false;
+        if (weather === 'clear') return true;
+        if (weather === 'fog' || weather === 'storm') return this.config?.isMobile ? s.lightOn : true;
         return true;
       });
       if (dockable.length > 0) {
@@ -492,7 +495,7 @@ export class LighthouseEngine {
       const laneScale = 1 - (ship.lane || 0) * 0.08;
       sp.scale.set(1, laneScale);
       sp.hullContainer.scale.set(-1, 1);
-      const showFreq = ship.status === 'approaching' && ship.distance < 85 && (weather === 'clear' || beamEffective || lightningReveal);
+      const showFreq = ship.status === 'approaching' && (weather === 'clear' || beamEffective || lightningReveal);
       sp.updateLabel(showFreq, ship.frequency, c.tunedFreq);
       if (ship.status === 'approaching') {
         if (weather === 'clear') {
@@ -537,7 +540,7 @@ export class LighthouseEngine {
         let freq: number;
         let spawnAttempts = 0;
         do {
-          freq = 80.0 + (Math.floor(Math.random() * 41) * 0.5);
+          freq = 80.0 + Math.floor(Math.random() * 21);
           spawnAttempts++;
         } while (spawnAttempts < 50 && existingFreqs.some(f => Math.abs(f - freq) < 2.0));
         const id = `ship-${this.shipIdCounter++}`;

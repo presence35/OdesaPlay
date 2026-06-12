@@ -17,15 +17,14 @@ export const TRANSLATIONS = {
     stinky: 'STINKY!',
     missed: 'MISSED!',
     ignored: 'IGNORED!',    
-    slow: 'SLOW',
-    fast: 'FAST',
     deliveryBonusPizza: 'mmm 🍕',
     deliveryBonusShawarma: 'mmm 🌯',
     deliveryHitPizza: 'RIP DINNER 😢',
     deliveryHitShawarma: 'RIP SHAWARMA 😢',
     swipe: 'SWIPE',
     quit: 'QUIT',
-    pickRoute: 'PICK A ROUTE'
+    pickRoute: 'PICK A ROUTE',
+    slideFingerDown: 'Slide finger down'
   },
   uk: {
     title2: 'МАРШРУТКА',
@@ -45,14 +44,13 @@ export const TRANSLATIONS = {
     stinky: 'ВОНЮЧИЙ!',
     missed: 'ПРОПУЩЕНО!',
     ignored: 'ПРОІГНОРОВАНО!',    
-    slow: 'ПОВІЛЬНО',
-    fast: 'ШВИДКО',
     deliveryBonusPizza: 'mmm 🍕',
     deliveryBonusShawarma: 'mmm 🌯',
     deliveryHitPizza: 'ВЕЧЕРІ НЕ БУДЕ 😢',
     deliveryHitShawarma: 'ШАУРМИ НЕ БУДЕ 😢',
     swipe: 'СВАЙП',
     quit: 'ВИЙТИ',
-    pickRoute: 'ОБЕРИ МАРШРУТ'
+    pickRoute: 'ОБЕРИ МАРШРУТ',
+    slideFingerDown: 'Опусти палець'
   }
 };

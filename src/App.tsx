@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import GameHub from './routes/GameHub';
 import Toast from './components/Toast';
 import BetaBanner from './components/BetaBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 const Play = lazy(() => import('./routes/Play'));
@@ -14,27 +15,29 @@ export default function App() {
       <BrowserRouter>
         <Toast />
         <BetaBanner />
-        <Suspense fallback={null}>
-          <Routes>
-            <Route path="/" element={<GameHub initialView="home" />} />
-            <Route path="/hunt" element={<GameHub initialView="venues" />} />
-            <Route path="/me" element={<GameHub initialView="me" />} />
-            <Route path="/leaderboard" element={<GameHub initialView="leaderboard" />} />
-            <Route path="/admin" element={<GameHub initialView="admin-panel" />} />
-            <Route path="/sales" element={<GameHub initialView="sales-tool" />} />
+        <ErrorBoundary fallback={<div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-8"><div className="text-center space-y-4"><div className="text-6xl">😵</div><p className="text-[var(--text-muted)] text-sm font-bold uppercase tracking-widest">Something went wrong — tap the logo to reload</p></div></div>}>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<GameHub initialView="home" />} />
+              <Route path="/hunt" element={<GameHub initialView="venues" />} />
+              <Route path="/me" element={<GameHub initialView="me" />} />
+              <Route path="/leaderboard" element={<GameHub initialView="leaderboard" />} />
+              <Route path="/admin" element={<GameHub initialView="admin-panel" />} />
+              <Route path="/sales" element={<GameHub initialView="sales-tool" />} />
 
-            <Route path="/play" element={<Play />} />
-            <Route path="/manager" element={<ManagerHub />} />
+              <Route path="/play" element={<Play />} />
+              <Route path="/manager" element={<ManagerHub />} />
 
-            <Route path="/drones" element={<GameHub initialView="home" />} />
-            <Route path="/shooter" element={<GameHub initialView="home" />} />
-            <Route path="/marshrutka" element={<GameHub initialView="home" />} />
-            <Route path="/trivia" element={<GameHub initialView="home" />} />
-            <Route path="/lighthouse" element={<GameHub initialView="home" />} />
+              <Route path="/drones" element={<GameHub initialView="home" />} />
+              <Route path="/shooter" element={<GameHub initialView="home" />} />
+              <Route path="/marshrutka" element={<GameHub initialView="home" />} />
+              <Route path="/trivia" element={<GameHub initialView="home" />} />
+              <Route path="/lighthouse" element={<GameHub initialView="home" />} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </ThemeProvider>
   );

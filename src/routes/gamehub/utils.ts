@@ -3,7 +3,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { translations, Language } from '../../language';
 import { showToast } from '../../components/Toast';
 import { PlayerStats, Game, OperationType, FirestoreErrorInfo } from './types';
-import { BADGE_DEFINITIONS, XP_LEVELS, XP_REWARDS, APP_ID } from './constants';
+import { BADGE_DEFINITIONS, STAR_LEVELS, STAR_REWARDS, APP_ID } from './constants';
 import { db } from '../../firebase';
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
@@ -102,6 +102,7 @@ export function calculatePlayerStats(
   const marshrutkaHighScore = userRecords.filter(l => l.gameId === 'marshrutka').reduce((max, l) => Math.max(max, l.score || 0), 0);
   const droneHighScore = userRecords.filter(l => l.gameId === 'drones').reduce((max, l) => Math.max(max, l.score || 0), 0);
   const lighthouseHighScore = userRecords.filter(l => l.gameId === 'lighthouse').reduce((max, l) => Math.max(max, l.score || 0), 0);
+  const shooterHighScore = userRecords.filter(l => l.gameId === 'shooter').reduce((max, l) => Math.max(max, l.score || 0), 0);
 
   const triviaRecords = userRecords.filter(l => l.gameId === 'trivia');
   let triviaPercent = 0;
@@ -121,15 +122,35 @@ export function calculatePlayerStats(
 
   const allVenuesUnlocked = checkins >= RESTAURANTS.length && RESTAURANTS.length > 0;
   let beatHighScoreBy50 = false;
+  let beatHighScoreBy100 = false;
   if (activeGame) {
     const prev = prevScores[activeGame.id] || 0;
     if (prev > 0) {
       const currentBest = userRecords.find(l => l.gameId === activeGame.id)?.score || 0;
       if (currentBest > prev * 1.5) beatHighScoreBy50 = true;
+      if (currentBest > prev * 2.0) beatHighScoreBy100 = true;
     }
   }
 
-  return { totalGamesPlayed, hasTop3, checkins, recruits, marshrutkaHighScore, droneHighScore, triviaPercent, lighthouseHighScore, streak, allVenuesUnlocked, beatHighScoreBy50, highScoreGames };
+  const uniqueGamesPlayed = new Set(userRecords.map(r => r.gameId)).size;
+  const gameIds = [...new Set(userRecords.map(r => r.gameId))];
+  let totalScoreSum = 0;
+  for (const gid of gameIds) {
+    totalScoreSum += userRecords.filter(r => r.gameId === gid).reduce((max, r) => Math.max(max, r.score || 0), 0);
+  }
+  const activeDays = new Set(userRecords.map(r => {
+    if (!r.timestamp) return null;
+    const ts = r.timestamp.toMillis ? r.timestamp.toMillis() : (r.timestamp.seconds ? r.timestamp.seconds * 1000 : r.timestamp);
+    return new Date(ts).toISOString().slice(0, 10);
+  }).filter(Boolean)).size;
+  let dailyCheckinCount = 0;
+  try {
+    const stored = JSON.parse(localStorage.getItem('odesa_checkins') || '{}');
+    const today = new Date().toISOString().slice(0, 10);
+    dailyCheckinCount = Object.values(stored).filter((v: any) => v?.ts?.startsWith(today)).length;
+  } catch {}
+
+  return { totalGamesPlayed, hasTop3, checkins, recruits, marshrutkaHighScore, droneHighScore, triviaPercent, lighthouseHighScore, shooterHighScore, streak, allVenuesUnlocked, beatHighScoreBy50, beatHighScoreBy100, highScoreGames, uniqueGamesPlayed, totalScoreSum, activeDays, dailyCheckinCount };
 }
 
 export async function checkAndUnlockBadges(
@@ -158,7 +179,7 @@ export async function checkAndUnlockBadges(
     let totalXpGain = 0;
     for (const badgeId of newUnlocks) {
       newAchievements[badgeId] = { unlockedAt: new Date().toISOString() };
-      totalXpGain += XP_REWARDS.badgeUnlocked;
+      totalXpGain += STAR_REWARDS.badgeUnlocked;
     }
     const newXp = xp + totalXpGain;
 
@@ -176,7 +197,7 @@ export async function checkAndUnlockBadges(
   }
 }
 
-export async function awardXp(
+export async function awardStars(
   uid: string,
   amount: number,
   xp: number,
@@ -233,30 +254,30 @@ export async function updateStreak(
   }, { merge: true });
 }
 
-export function getLevel(xpVal: number): number {
+export function getLevel(stars: number): number {
   let level = 1;
-  for (let i = 0; i < XP_LEVELS.length; i++) {
-    if (xpVal >= XP_LEVELS[i]) level = i + 1;
+  for (let i = 0; i < STAR_LEVELS.length; i++) {
+    if (stars >= STAR_LEVELS[i]) level = i + 1;
     else break;
   }
   return level;
 }
 
-export function getXpForCurrentLevel(xpVal: number): number {
-  const level = getLevel(xpVal);
-  return XP_LEVELS[level - 1] || 0;
+export function getStarsForCurrentLevel(stars: number): number {
+  const level = getLevel(stars);
+  return STAR_LEVELS[level - 1] || 0;
 }
 
-export function getXpForNextLevel(xpVal: number): number {
-  const level = getLevel(xpVal);
-  return XP_LEVELS[level] || XP_LEVELS[XP_LEVELS.length - 1];
+export function getStarsForNextLevel(stars: number): number {
+  const level = getLevel(stars);
+  return STAR_LEVELS[level] || STAR_LEVELS[STAR_LEVELS.length - 1];
 }
 
-export function getXpProgress(xpVal: number): number {
-  const current = getXpForCurrentLevel(xpVal);
-  const next = getXpForNextLevel(xpVal);
+export function getStarsProgress(stars: number): number {
+  const current = getStarsForCurrentLevel(stars);
+  const next = getStarsForNextLevel(stars);
   if (next === current) return 100;
-  return ((xpVal - current) / (next - current)) * 100;
+  return ((stars - current) / (next - current)) * 100;
 }
 
 export function getWeekFilteredLeaderboards(leaderboards: any[]) {
@@ -273,6 +294,17 @@ export function getWeekFilteredLeaderboards(leaderboards: any[]) {
     const ts = l.timestamp.toMillis ? l.timestamp.toMillis() : (l.timestamp.seconds * 1000);
     return ts >= lastWeekStart.getTime() && ts < monday.getTime();
   });
+}
+
+export function calculateSellValue(paidCost: number, purchasedAt: any): { weeksOwned: number; lossPercent: number; refund: number } {
+  if (!paidCost || !Number.isFinite(paidCost) || paidCost <= 0) return { weeksOwned: 0, lossPercent: 0, refund: 0 };
+  if (!purchasedAt) return { weeksOwned: 0, lossPercent: 0, refund: paidCost };
+  const purchaseDate = purchasedAt.toDate ? purchasedAt.toDate() : new Date(purchasedAt);
+  const msOwned = Date.now() - purchaseDate.getTime();
+  const weeksOwned = Math.max(0, Math.floor(msOwned / (7 * 86400000)));
+  const lossPercent = Math.min(weeksOwned * 2, 75);
+  const refund = Math.max(Math.floor(paidCost * (100 - lossPercent) / 100), Math.ceil(paidCost * 0.25));
+  return { weeksOwned, lossPercent, refund };
 }
 
 export function getTimeAgo(timestamp: any, lang: Language) {

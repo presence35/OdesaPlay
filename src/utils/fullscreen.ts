@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-function useIsMobile() {
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(pointer: coarse)').matches
+    || 'ontouchstart' in window
+    || navigator.maxTouchPoints > 0;
+}
+
+export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() =>
-    window.matchMedia('(pointer: coarse)').matches
+    isMobileDevice()
   );
 
   useEffect(() => {
@@ -33,18 +40,18 @@ export function useFullscreenOnRotate(active: boolean, requiredOrientation?: 'po
         await document.documentElement.requestFullscreen();
         fullscreenRef.current = true;
         setIsFullscreen(true);
-        if (isMobile && requiredOrientation) {
-          try {
-            const so = (screen as Screen & { orientation?: { lock: (o: string) => Promise<void> } }).orientation;
-            if (so?.lock) {
-              await so.lock(requiredOrientation);
-            }
-          } catch {
-            // Orientation lock unsupported or denied
-          }
+      } catch {
+        // Fullscreen unsupported or blocked — orientation lock still attempted below
+      }
+    }
+    if (isMobile && requiredOrientation) {
+      try {
+        const so = (screen as Screen & { orientation?: { lock: (o: string) => Promise<void> } }).orientation;
+        if (so?.lock) {
+          await so.lock(requiredOrientation);
         }
       } catch {
-        // Unsupported or blocked
+        // Orientation lock unsupported or denied
       }
     }
   }, [isMobile, requiredOrientation]);

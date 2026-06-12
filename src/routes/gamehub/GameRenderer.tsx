@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Game } from './types';
 import { Language } from '../../language';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import LoadingTrident from '../../components/LoadingTrident';
 
 const ShooterApp = lazy(() => import('../../games/shooter/App'));
 const DronesApp = lazy(() => import('../../games/drones/App'));
@@ -32,6 +32,9 @@ export function renderGameComponent(
       eggFound: function(eggId: string) {
         window.postMessage({ type: 'ODESAPLAY_EGG_FOUND', eggId }, window.location.origin);
       },
+      toggleSplashItem: function(itemId: string) {
+        window.postMessage({ type: 'ODESAPLAY_TOGGLE_SPLASH_ITEM', itemId }, window.location.origin);
+      },
       gameOver: function(score: number) {
         window.postMessage({ type: 'ODESAPLAY_SCORE', score: score, gameId: w.Odesa.gameId }, window.location.origin);
       },
@@ -39,7 +42,7 @@ export function renderGameComponent(
         if (!w._odesaConfigListeners.includes(cb)) {
           w._odesaConfigListeners.push(cb);
         }
-        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100, isAdmin: w.Odesa._latestConfig?.isAdmin ?? false });
+        cb({ lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, stars: w.Odesa._latestConfig?.stars ?? 0, inventory: w.Odesa._latestConfig?.inventory ?? {}, splashItems: w.Odesa._latestConfig?.splashItems ?? [], isAdmin: w.Odesa._latestConfig?.isAdmin ?? false });
       },
       onStop: function(cb: any) {
         if (!w._odesaStopListeners.includes(cb)) {
@@ -61,7 +64,7 @@ export function renderGameComponent(
         }
       },
       getConfig: function() {
-        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, credits: 100, isAdmin: w.Odesa._latestConfig?.isAdmin ?? false };
+        return { lang: w.Odesa._latestConfig?.lang || 'uk', sfxEnabled: w.Odesa._latestConfig?.sfxEnabled ?? true, musicEnabled: w.Odesa._latestConfig?.musicEnabled ?? true, peace: w.Odesa._latestConfig?.peace ?? false, stars: w.Odesa._latestConfig?.stars ?? 0, inventory: w.Odesa._latestConfig?.inventory ?? {}, splashItems: w.Odesa._latestConfig?.splashItems ?? [], isAdmin: w.Odesa._latestConfig?.isAdmin ?? false };
       },
       win: function(score: number) {
         this.gameOver(score);
@@ -82,16 +85,13 @@ export function renderGameComponent(
     };
   }
   w.Odesa.gameId = activeGame.id;
-  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), isAdmin: isAdmin ?? false };
+  w.Odesa._latestConfig = { lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), stars: 0, inventory: {}, splashItems: [], isAdmin: isAdmin ?? false };
 
   return (
     <div className="flex-1 w-full relative overflow-hidden flex flex-col bg-black select-none">
       <Suspense fallback={
   <div className="flex-1 flex items-center justify-center bg-black">
-    <LoadingSpinner
-      text={activeGame?.title?.[lang as 'en' | 'uk'] || 'Loading...'}
-      className="m-0"
-    />
+    <LoadingTrident text={activeGame?.title?.[lang as 'en' | 'uk'] || 'Loading...'} />
   </div>
 }>
         {activeGame.id === 'shooter' && <ShooterApp />}

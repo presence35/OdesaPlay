@@ -9,14 +9,17 @@ import { GameScreen } from './components/GameScreen';
 import { TRANSLATIONS } from './translations';
 import { registerSoundPauser, unregisterSoundPauser } from '../../../utils/audioContext';
 import { audio } from './audio';
+import LoadingTrident from '../../../components/LoadingTrident';
 
 export default function App() {
+  const [isReady, setIsReady] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('start');
   
   // Metagame State
   const [score, setScore] = useState(0);
   const [dayCount, setDayCount] = useState(1);
   const [lastEarnings, setLastEarnings] = useState(0);
+  const [splashItems, setSplashItems] = useState<any[]>([]);
   const [totalDockedShips, setTotalDockedShips] = useState(0);
 
   const [upgrades, setUpgrades] = useState<Upgrades>({
@@ -51,13 +54,6 @@ export default function App() {
     }
   };
 
-  const handleBuy = (key: keyof Upgrades, cost: number) => {
-    if (score >= cost && !upgrades[key]) {
-      setScore(prev => prev - cost);
-      setUpgrades(prev => ({ ...prev, [key]: true }));
-    }
-  };
-
   const handleNextDay = () => {
     setDayCount(prev => prev + 1);
     setCurrentScreen('playing');
@@ -77,6 +73,13 @@ export default function App() {
         if (config.lang) setLang(config.lang as 'en' | 'uk');
         if (config.sfxEnabled !== undefined) audio.setSfxEnabled(config.sfxEnabled);
         if (config.isAdmin !== undefined) setIsAdmin(config.isAdmin);
+        if (config.inventory?.lighthouse) {
+          setUpgrades({
+            autoFoghorn: !!config.inventory.lighthouse.autoFoghorn,
+            tungstenFilament: !!config.inventory.lighthouse.tungstenFilament,
+            solarBackup: !!config.inventory.lighthouse.solarBackup,
+          });
+        }
       });
 
       odesa.onStop(() => {
@@ -99,12 +102,19 @@ export default function App() {
     };
   }, []);
 
-  return (
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
+
+  return !isReady ? (
+    <LoadingTrident className="absolute inset-0 bg-[#0A1128]" />
+  ) : (
     <div className="absolute inset-0 bg-[#0A1128] text-white flex flex-col overflow-hidden">
       
       {currentScreen === 'start' && (
         <StartScreen
           t={t}
+          splashItems={splashItems}
           onStart={() => {
             setCurrentScreen('playing');
             window.parent.postMessage({ type: 'ODESAPLAY_GAME_STARTED' }, '*');
@@ -125,11 +135,8 @@ export default function App() {
 
       {currentScreen === 'upgrade' && (
         <UpgradeScreen 
-          score={score}
-          upgrades={upgrades}
           dayCount={dayCount}
           lastEarnings={lastEarnings}
-          onBuy={handleBuy}
           onNextDay={handleNextDay}
           t={t}
         />

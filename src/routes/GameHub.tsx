@@ -9,7 +9,7 @@ import {
   Zap, Lock, Gamepad2, Map as MapIcon, User,
   Volume2, VolumeX, Share2, Mail, Send, Music,
   Trophy, Star, Target, Calendar, AlertTriangle, Users,
-  Globe, Palette, Settings
+  Globe, Palette, Settings, ShoppingCart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from "qrcode.react";
@@ -34,11 +34,12 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CheckInPrompt from '../components/CheckInPrompt';
 import { EASTER_EGG_DEFINITIONS, useEggFindings } from './gamehub/easterEggs';
 import LanguageThemeCard from '../components/LanguageThemeCard';
-import { Game, Claim, OperationType, NotificationPreferences, VenueTournament } from './gamehub/types';
-import { APP_ID, BADGE_DEFINITIONS, XP_REWARDS } from './gamehub/constants';
-import { handleFirestoreError, transliterate, getTier, triggerHaptic, calculatePlayerStats, getWeekFilteredLeaderboards, getTimeAgo } from './gamehub/utils';
+import { Game, Claim, OperationType, NotificationPreferences, VenueTournament, InventoryItem } from './gamehub/types';
+import { APP_ID, BADGE_DEFINITIONS, STAR_REWARDS, SHOP_ITEMS } from './gamehub/constants';
+import { handleFirestoreError, transliterate, getTier, getLevel, triggerHaptic, calculatePlayerStats, getWeekFilteredLeaderboards, getTimeAgo, calculateSellValue } from './gamehub/utils';
 import { renderGameComponent } from './gamehub/GameRenderer';
 import ProfileTab from './profile/ProfileTab';
+import ShopTab from './profile/ShopTab';
 import PrizesTab from './profile/PrizesTab';
 import SettingsTab from './profile/SettingsTab';
 
@@ -103,7 +104,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     initialView === 'sales-tool' ? 'sales-tool' :
     initialView as 'home' | 'venues' | 'me' | 'leaderboard'
   );
-  const [profileView, setProfileView] = useState<'profile' | 'prizes' | 'settings'>('profile');
+  const [profileView, setProfileView] = useState<'profile' | 'prizes' | 'shop' | 'settings'>('profile');
   const [tutorialsDismissed, setTutorialsDismissed] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('odesa_tutorials') || '[]')); } catch { return new Set<string>(); }
   });
@@ -144,15 +145,20 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
   const [achievements, setAchievements] = useState<Record<string, { unlockedAt: any }>>({});
   const [streak, setStreak] = useState(0);
   const [xp, setXp] = useState(0);
+  const [inventory, setInventory] = useState<Record<string, Record<string, InventoryItem>>>({});
   const [leaderboardFilter, setLeaderboardFilter] = useState<'all' | 'week' | 'alert'>('week');
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<string[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
   const [prevScores, setPrevScores] = useState<Record<string, number>>({});
   const [recruitCount, setRecruitCount] = useState(0);
+  const [starHolders, setStarHolders] = useState<any[]>([]);
   const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
   const { findings: eggFindings } = useEggFindings();
   const [gameNotifications, setGameNotifications] = useState<Set<string>>(new Set());
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('odesa_onboarding_done');
+  });
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     droneAlerts: false, gameReminders: false, venueSpecials: false, tournamentLaunches: false
   });
@@ -244,41 +250,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     }
   }, [musicEnabled, activeTracks]);
 
-  const { requestFS, isLandscape, isFullscreen, isWrongOrientation } = useFullscreenOnRotate(!!activeGame, activeGame?.orientation);
-
-  const [isLandscapeMode, setIsLandscapeMode] = useState(false);
-  const [isMobileDevice, setIsMobileDevice] = useState(() => window.matchMedia('(pointer: coarse)').matches);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(pointer: coarse)');
-    const handler = (e: MediaQueryListEvent) => setIsMobileDevice(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  useEffect(() => {
-    const checkOrientation = () => {
-      setIsLandscapeMode(window.matchMedia('(orientation: landscape)').matches);
-    };
-
-    const screenOrientation = (screen as any).orientation || (screen as any).msOrientation || null;
-    if (screenOrientation?.addEventListener) {
-      screenOrientation.addEventListener('change', checkOrientation);
-    } else {
-      window.matchMedia('(orientation: landscape)').addEventListener('change', checkOrientation);
-    }
-    window.addEventListener('resize', checkOrientation);
-    checkOrientation();
-
-    return () => {
-      if (screenOrientation?.removeEventListener) {
-        screenOrientation.removeEventListener('change', checkOrientation);
-      } else {
-        window.matchMedia('(orientation: landscape)').removeEventListener('change', checkOrientation);
-      }
-      window.removeEventListener('resize', checkOrientation);
-    };
-  }, []);
+  const { requestFS, isWrongOrientation } = useFullscreenOnRotate(!!activeGame, activeGame?.orientation);
 
   // Profile Editing State
   const [isEditing, setIsEditing] = useState(false);
@@ -435,6 +407,12 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       }
     }, error => console.warn('playerProgress listener error:', error));
 
+    const unsubInventory = onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'inventory', user.uid), docSnap => {
+      if (docSnap.exists()) {
+        setInventory(docSnap.data() as Record<string, Record<string, InventoryItem>>);
+      }
+    }, error => console.warn('inventory listener error:', error));
+
     const unsub5 = onSnapshot(
       query(
         collection(db, 'artifacts', APP_ID, 'public', 'data', 'profiles'),
@@ -465,8 +443,36 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       },
       error => console.warn('player prizes listener error:', error)
     );
+
+    const unsubStars = onSnapshot(
+      query(
+        collection(db, 'artifacts', APP_ID, 'public', 'data', 'playerProgress'),
+        orderBy('xp', 'desc'), limit(20)
+      ),
+      snapshot => {
+        const holders = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+        const uids = holders.map(h => h.uid).filter(Boolean);
+        if (uids.length > 0) {
+          Promise.all(uids.map(uid =>
+            getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'profiles', uid))
+              .then(d => ({ uid, data: d.exists() ? d.data() : null }))
+          )).then(results => {
+            const pmap: Record<string, any> = {};
+            results.forEach(r => { if (r.data) pmap[r.uid] = r.data; });
+            setStarHolders(holders.map(h => ({
+              ...h,
+              nickname: pmap[h.uid]?.nickname || `HERO_${h.uid.substring(0, 8)}`,
+              avatar: pmap[h.uid]?.avatar || '⚓'
+            })));
+          }).catch(err => console.warn('star holder profiles error:', err));
+        } else {
+          setStarHolders([]);
+        }
+      },
+      error => handleFirestoreError(error, OperationType.LIST, 'playerProgress')
+    );
     
-    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsubNotif(); unsub6(); };
+    return () => { unsub1(); unsub2(); unsub3u(); unsub4(); unsub5(); unsubNotif(); unsub6(); unsubStars(); };
   }, [user, venueId]);
 
   // TEMP DISABLED: auto check-in prompt logic
@@ -508,7 +514,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     const stored = JSON.parse(localStorage.getItem('odesa_checkins') || '{}');
     stored[venueId] = { ts: new Date().toISOString(), mode: 'casual' };
     localStorage.setItem('odesa_checkins', JSON.stringify(stored));
-    const newXp = xp + XP_REWARDS.checkin;
+    const newXp = xp + STAR_REWARDS.checkin;
     await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'playerProgress', uid), {
       achievements, streak, xp: newXp, prevScores, updatedAt: serverTimestamp()
     }, { merge: true }).catch(console.error);
@@ -518,14 +524,43 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     showToast(t.checkinXpEarned);
   };
 
+  const [splashItemVisibility, setSplashItemVisibility] = useState<Record<string, Record<string, boolean>>>(() => {
+    try { return JSON.parse(localStorage.getItem('odesa_splash_item_vis') || '{}'); }
+    catch { return {}; }
+  });
+
+  const toggleSplashItem = (gameId: string, itemId: string) => {
+    setSplashItemVisibility(prev => {
+      const gameVis = prev[gameId] || {};
+      const current = gameVis[itemId] !== false;
+      const next = { ...prev, [gameId]: { ...gameVis, [itemId]: !current } };
+      localStorage.setItem('odesa_splash_item_vis', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const ownedSplashItems = useMemo(() => {
+    if (!activeGame) return [];
+    return SHOP_ITEMS
+      .filter(item => item.gameIds.includes(activeGame.id))
+      .filter(item => item.cost === 0 || item.gameIds.some(gid => inventory[gid]?.[item.id]))
+      .sort((a, b) => a.name.en.localeCompare(b.name.en));
+  }, [activeGame, inventory]);
+
     // Sync config with iframe when settings change
     // TODO: Convert remaining alert() calls to toast notifications
     useEffect(() => {
       // Update global Odesa mock
       if ((window as any).Odesa && (window as any).Odesa._triggerConfig) {
-        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), credits: 100, isAdmin });
+        const items = (activeGame ? ownedSplashItems : []).map((item: any) => ({
+          id: item.id,
+          icon: item.icon,
+          name: item.name[lang as 'en' | 'uk'],
+          visible: activeGame ? (splashItemVisibility[activeGame.id]?.[item.id] !== false) : true
+        }));
+        (window as any).Odesa._triggerConfig({ lang, sfxEnabled, musicEnabled, peace: !((window as any).__alertStatus?.active ?? false), stars: xp, inventory, isAdmin, splashItems: items });
       }
-    }, [lang, sfxEnabled, musicEnabled, activeGame]);
+    }, [lang, sfxEnabled, musicEnabled, activeGame, inventory, xp, ownedSplashItems, splashItemVisibility]);
 
   useEffect(() => {
     if (activeGame || activeReward) {
@@ -545,9 +580,15 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.type === 'ODESAPLAY_READY') {
         if (e.source) {
+          const items = (activeGame ? ownedSplashItems : []).map((item: any) => ({
+            id: item.id,
+            icon: item.icon,
+            name: item.name[lang as 'en' | 'uk'],
+            visible: activeGame ? (splashItemVisibility[activeGame.id]?.[item.id] !== false) : true
+          }));
           (e.source as WindowProxy).postMessage({
             type: 'ODESAPLAY_CONFIG',
-            config: { lang, sfxEnabled, musicEnabled, credits: 100, isAdmin }
+            config: { lang, sfxEnabled, musicEnabled, stars: xp, inventory, isAdmin, splashItems: items }
           }, window.location.origin);
         }
         // Removed legacy iframe sync
@@ -565,6 +606,8 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         setActiveGame(null);
       } else if (e.data?.type === 'ODESAPLAY_EGG_FOUND') {
         handleEggFound(e.data.eggId);
+      } else if (e.data?.type === 'ODESAPLAY_TOGGLE_SPLASH_ITEM') {
+        if (activeGame) toggleSplashItem(activeGame.id, e.data.itemId);
       } else if (e.data?.type === 'ODESAPLAY_SCORE' || e.data?.type === 'win' || e.data?.type === 'gameOver') {
         setGamePlaying(false);
         setGameActive(false);
@@ -639,9 +682,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             let currentAchievements = { ...achievements };
             const currentPrevScores = { ...prevScores, [gameId]: score };
 
-            currentXp += XP_REWARDS.gamePlayed;
+            currentXp += STAR_REWARDS.gamePlayed;
             if (score > oldHighScore) {
-              currentXp += XP_REWARDS.newHighScore;
+              currentXp += STAR_REWARDS.newHighScore;
             }
 
             const today = new Date().toISOString().slice(0, 10);
@@ -669,7 +712,7 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             let totalXpGain = 0;
             for (const badgeId of newUnlocks) {
               currentAchievements[badgeId] = { unlockedAt: new Date().toISOString() };
-              totalXpGain += XP_REWARDS.badgeUnlocked;
+              totalXpGain += STAR_REWARDS.badgeUnlocked;
             }
             currentXp += totalXpGain;
 
@@ -848,7 +891,9 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
             original: cleanName 
           });
         } catch (e: any) {
-          console.warn('Username reservation skipped (likely permission issue):', e);
+          console.warn('Username reservation skipped:', e);
+          setNameError(t.connectionError || 'Connection issue. Try again.');
+          return;
         }
       }
       
@@ -894,6 +939,57 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
       showToast(`🥚 ${eggDef.name[lang]} ${t.eggFoundToast}`);
       triggerHaptic([100, 50, 100]);
     } catch {}
+  };
+
+  const handleShopBuy = async (item: { id: string; gameIds: string[]; cost: number }) => {
+    if (!user) return;
+    if (xp < item.cost) return;
+    const newStars = xp - item.cost;
+    const inv = { ...inventory };
+    for (const gid of item.gameIds) {
+      if (!inv[gid]) inv[gid] = {};
+      inv[gid][item.id] = { purchasedAt: serverTimestamp(), paidCost: item.cost };
+    }
+    const uid = user.uid;
+    await Promise.all([
+      setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'playerProgress', uid), { xp: newStars, updatedAt: serverTimestamp() }, { merge: true }),
+      setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'inventory', uid), inv, { merge: true }),
+    ]).catch(e => { showToast('Purchase failed'); console.error(e); });
+    setXp(newStars);
+    setInventory(inv);
+  };
+
+  const handleSellItem = async (item: { id: string; gameIds: string[]; cost: number }) => {
+    if (!user) return;
+    const inv = { ...inventory };
+    let refund = 0;
+    for (const gid of item.gameIds) {
+      const entry = inv[gid]?.[item.id];
+      if (!entry) continue;
+      // Handle legacy boolean inventory (pre-sell feature)
+      const paidCost = entry === true ? item.cost : entry.paidCost;
+      const purchasedAt = entry === true ? null : entry.purchasedAt;
+      const result = calculateSellValue(paidCost, purchasedAt);
+      if (!result.refund || result.refund <= 0) continue;
+      refund = result.refund;
+      delete inv[gid][item.id];
+      if (Object.keys(inv[gid]).length === 0) delete inv[gid];
+    }
+    if (!refund || refund <= 0) return;
+    const newStars = xp + refund;
+    if (!Number.isFinite(newStars)) return;
+    const uid = user.uid;
+    try {
+      await Promise.all([
+        setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'playerProgress', uid), { xp: newStars, updatedAt: serverTimestamp() }, { merge: true }),
+        setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'inventory', uid), inv, { merge: true }),
+      ]);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+    setXp(newStars);
+    setInventory(inv);
   };
 
   const handleWin = async (game: Game | undefined, score: number, tier: number) => {
@@ -1089,13 +1185,14 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               {renderGameComponent(activeGame, lang, sfxEnabled, musicEnabled, setGamePlaying, isAdmin)}
               {isWrongOrientation && (
                 <div className="absolute inset-0 z-50 bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-8 text-center">
-                  <div className="text-6xl mb-6">🔄</div>
-                  <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                    className="text-6xl mb-6"
+                  >🔄</motion.div>
+                  <h2 className="text-2xl font-bold text-[var(--text-primary)]">
                     {activeGame?.orientation === 'landscape' ? t.rotateLandscape : t.rotatePortrait}
                   </h2>
-                  <p className="text-lg text-[var(--text-primary)]/70 max-w-xs">
-                    {activeGame?.orientation === 'landscape' ? t.rotateLandscapeDesc : t.rotatePortraitDesc}
-                  </p>
                 </div>
               )}
             </div>
@@ -1141,13 +1238,45 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
         )}
       </AnimatePresence>
 
-      {!activeGame && isMobileDevice && isLandscapeMode && (
-        <div className="fixed inset-0 z-[55] bg-[var(--overlay-bg)] flex flex-col items-center justify-center p-8 text-center">
-          <div className="text-6xl mb-6">🔄</div>
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{t.rotatePortrait}</h2>
-          <p className="text-lg text-[var(--text-primary)]/70 max-w-xs">{t.rotatePortraitDesc}</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-[var(--bg-primary)] flex flex-col items-center justify-center p-8"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.5 }}
+              className="absolute inset-0 bg-black/40"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative z-10 w-full max-w-sm bg-[var(--bg-primary)] border border-[var(--border-strong)] rounded-[40px] p-8 text-center shadow-2xl"
+            >
+              <img src="/images/logo_full.png" alt="OdesaPlay" className="h-14 w-auto mx-auto mb-6" />
+              <h2 className="text-2xl font-black italic uppercase tracking-tight text-[var(--text-primary)] mb-4">
+                {(t as any).onboardingTitle}
+              </h2>
+              <p className="text-sm font-bold text-[var(--text-muted)] leading-relaxed mb-8">
+                {(t as any).onboardingPlay}
+              </p>
+              <button
+                onClick={() => {
+                  setShowOnboarding(false);
+                  localStorage.setItem('odesa_onboarding_done', 'true');
+                }}
+                className="w-full py-4 bg-[var(--accent-bg)] text-[var(--text-on-accent)] rounded-2xl font-black uppercase active:scale-95 transition-transform tracking-widest text-lg"
+              >
+                {(t as any).onboardingCTA}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <header className="px-3 py-1.5 flex justify-between items-center gap-2 fixed w-full top-0 left-0 right-0 bg-[var(--bg-primary)]/95 backdrop-blur-md z-50 border-b border-[var(--border-strong)] shadow-2xl">
         <div onClick={() => setView('home')} className="cursor-pointer shrink-0">
@@ -1178,38 +1307,6 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
                 <CheckInPrompt venues={RESTAURANTS} lang={lang} onCheckin={handleCheckIn} onDismiss={() => { setShowCheckInPrompt(false); checkinPromptTriggeredRef.current = false; }} />
               )}
             </AnimatePresence>
-            {showTutorial && (
-              <div className="text-center" onClick={() => dismissTutorial('home')}>
-                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center text-[10px] bg-[var(--accent-bg)]/15 text-[var(--text-accent)] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm cursor-pointer">
-                  {tutorialMessages.home}
-                </motion.div>
-              </div>
-            )}
-            {showSetup && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeLanguageInverse}
-                    </h3>
-                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
-                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="language" />
-                    </div>
-                  </div>
-                  <div className="text-left space-y-4">
-                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
-                    </h3>
-                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
-                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="theme" />
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[9px] text-[var(--text-subtle)] text-center font-bold tracking-wide">
-                  {t.themeProfileNote}
-                </p>
-              </div>
-            )}
             {/* Active Tournaments — one-liner linking to venues tab */}
             {activeTournaments.length > 0 && (
               <button onClick={() => setView('venues')} className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-[var(--btn-primary-bg)]/20 to-[var(--accent-bg)]/20 p-4 rounded-[24px] border border-[var(--accent-border)] cursor-pointer active:scale-[0.97] transition-transform shadow-lg shadow-[var(--accent-bg)]/20">
@@ -1314,6 +1411,31 @@ export default function GameHub({ initialView = 'home' }: { initialView?: 'home'
               </section>
             ))}
 
+            {showSetup && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeLanguageInverse}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="language" />
+                    </div>
+                  </div>
+                  <div className="text-left space-y-4">
+                    <h3 className="text-sm font-black uppercase text-[var(--text-muted)] tracking-widest flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-[var(--text-accent)]" /> {t.themeTheme}
+                    </h3>
+                    <div className="bg-[var(--bg-secondary)]/50 p-4 rounded-[32px] border border-[var(--border-strong)] shadow-xl">
+                      <LanguageThemeCard lang={lang} onLangChange={pickLang} t={t} variant="theme" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[9px] text-[var(--text-subtle)] text-center font-bold tracking-wide">
+                  {t.themeProfileNote}
+                </p>
+              </div>
+            )}
             {/* Gradient hint for scroll */}
             <div className="h-24 -mt-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent relative z-10" />
             
@@ -1461,6 +1583,38 @@ onClick={() => {
               );
             })}
 
+            {starHolders.length > 0 && (
+              <div key="star-holders" className="bg-[var(--bg-secondary)]/50 p-5 rounded-3xl border border-[var(--border-default)] space-y-4 shadow-xl">
+                <h3 className="text-sm font-black text-[var(--text-muted)] uppercase italic tracking-widest flex items-center gap-2">⭐ {t.starHolders}</h3>
+                <div className="space-y-3">
+                  {starHolders.map((h, i) => {
+                    const isUser = h.uid === getUserId();
+                    const level = getLevel(h.xp || 0);
+                    return (
+                      <div
+                        key={h.uid}
+                        className={`flex items-center justify-between ${isUser ? 'bg-[var(--accent-bg)]/10 -mx-2 px-2 py-1 rounded-xl border border-[var(--border-accent)]' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg w-6 text-center">
+                            {i < 3 ? ['🥇', '🥈', '🥉'][i] : <span className="text-xs font-black text-[var(--text-subtle)]">{i + 1}</span>}
+                          </span>
+                          <Media src={h.avatar || '⚓'} imgClass="w-5 h-5" textClass="text-lg" />
+                          <div className="flex flex-col">
+                            <span className="font-bold uppercase text-sm tracking-widest leading-none">{h.nickname}</span>
+                            <span className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest leading-none mt-1">{t.level} {level}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-[var(--text-accent)] italic font-mono">{h.xp} ⭐</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {leaderboards.length === 0 && <div className="text-center py-20 text-[var(--text-muted)] italic">{t.noEntries}</div>}
           </motion.div>
         )}
@@ -1570,6 +1724,12 @@ onClick={() => {
                 <Ticket className="w-3.5 h-3.5" /> {t.myPrizes}
               </button>
               <button
+                onClick={() => setProfileView('shop')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-1.5 ${profileView === 'shop' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                <ShoppingCart className="w-3.5 h-3.5" /> {t.shop}
+              </button>
+              <button
                 onClick={() => setProfileView('settings')}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-1.5 ${profileView === 'settings' ? 'bg-[var(--btn-primary-bg)] text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
               >
@@ -1599,11 +1759,13 @@ onClick={() => {
                 achievements={achievements}
                 streak={streak}
                 xp={xp}
+                inventory={inventory}
                 recruitCount={recruitCount}
                 eggFindings={eggFindings}
                 selectedBadge={selectedBadge}
                 newlyUnlockedBadges={newlyUnlockedBadges}
                 onSelectBadge={setSelectedBadge}
+                onSell={handleSellItem}
               />
             )}
 
@@ -1617,6 +1779,17 @@ onClick={() => {
                 loadingMorePrizes={loadingMorePrizes}
                 onLoadMorePrizes={loadMorePrizes}
                 RESTAURANTS={RESTAURANTS}
+              />
+            )}
+
+            {profileView === 'shop' && (
+              <ShopTab
+                t={t}
+                lang={lang}
+                stars={xp}
+                inventory={inventory}
+                onBuy={handleShopBuy}
+                onSell={handleSellItem}
               />
             )}
 

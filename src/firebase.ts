@@ -15,6 +15,10 @@ const VAPID_KEY = 'BPijC0ZRLR51O0MA1TKswPAmdjQDuhLM_XP5LmJQQuJQY2eK4M9arkXOwq6Dp
 export const requestFcmToken = async (): Promise<string | null> => {
   try {
     if (typeof Notification === 'undefined') return null;
+    if (Notification.permission === 'denied') {
+      console.warn('[FCM] Notification permission previously denied');
+      return null;
+    }
     const messaging = getMessaging(app);
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;
@@ -23,6 +27,10 @@ export const requestFcmToken = async (): Promise<string | null> => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[FCM] requestFcmToken failed:', msg);
+    if (msg.includes('messaging/unsupported-browser') || msg.includes('registration-token')) {
+      console.warn('[FCM] Push not supported on this device/browser');
+      return null;
+    }
     throw new Error(msg);
   }
 };

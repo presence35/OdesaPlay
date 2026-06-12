@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as PIXI from 'pixi.js';
 import { getAudioContext, resumeAudioContext } from '../../utils/audioContext';
 import { ObjectPool } from '../../utils/objectPool';
+import LoadingTrident from '../../components/LoadingTrident';
 
 type GameState = 'menu' | 'playing' | 'gameover';
 interface Enemy { id: number; x: number; y: number; vx: number; vy: number; width: number; height: number; sprite: PIXI.Sprite; }
@@ -84,6 +85,7 @@ export default function App() {
   const gameStateRef = useRef(gameState);
   const [finalScore, setFinalScore] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [splashItems, setSplashItems] = useState<any[]>([]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
   const [lang, setLang] = useState<Lang>('uk');
@@ -91,6 +93,9 @@ export default function App() {
   const [difficulty, setDifficulty] = useState<'easy'|'hard'>('easy');
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
+  const [recovering, setRecovering] = useState(false);
+  const recoveringRef = useRef(false);
+  const [pixiVersion, setPixiVersion] = useState(0);
 
   useEffect(() => {
     if (window.Odesa?.getConfig) {
@@ -98,6 +103,7 @@ export default function App() {
       if (config) {
         setLang(config.lang === 'uk' ? 'uk' : 'en');
         setIsMuted(!(config.sound !== false && config.sfxEnabled !== false));
+        if (config.splashItems) setSplashItems(config.splashItems);
       }
     }
     setIsReady(true);
@@ -110,6 +116,7 @@ export default function App() {
           setLang(config.lang === 'uk' ? 'uk' : 'en');
           setIsMuted(!(config.sound !== false && config.sfxEnabled !== false));
           if (typeof config.sfxEnabled === 'boolean') _soundEnabled = config.sfxEnabled;
+          if (config.splashItems) setSplashItems(config.splashItems);
         });
       }
       const stopHandler = () => {
@@ -201,14 +208,6 @@ export default function App() {
 
   // Pixi state
   const pixiAppRef = useRef<PIXI.Application | null>(null);
-  const layersRef = useRef({
-    bg: new PIXI.Container(),
-    stars: new PIXI.Container(),
-    entity: new PIXI.Container(),
-    particles: new PIXI.Container(),
-    overlay: new PIXI.Container(),
-    ui: new PIXI.Container()
-  });
   
   // Drone texture cache
   const droneTextureRef = useRef<PIXI.Texture | null>(null);
@@ -227,22 +226,42 @@ export default function App() {
     let isDestroyed = false;
 
     (async () => {
-      await app.init({
-        resizeTo: parent,
-        autoDensity: true,
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
-        antialias: false,
-        backgroundAlpha: 1,
-        backgroundColor: 0x0f172a, // very dark slate
-      });
-      if (isDestroyed) {
-        app.destroy(true, { children: true });
-        return;
+      let initErr: any;
+      try {
+        await app.init({
+          resizeTo: parent,
+          autoDensity: true,
+          resolution: Math.min(window.devicePixelRatio || 1, 2),
+          antialias: false,
+          backgroundAlpha: 1,
+          backgroundColor: 0x0f172a,
+        });
+      } catch (e) {
+        initErr = e;
+      }
+      if (!initErr) {
+        if (isDestroyed) { app.destroy(true, { children: true }); return; }
+      } else {
+        app = new PIXI.Application();
+        await app.init({
+          resizeTo: parent,
+          preference: 'canvas',
+          backgroundAlpha: 1,
+          backgroundColor: 0x0f172a,
+        });
+        if (isDestroyed) { app.destroy(true, { children: true }); return; }
       }
       parent.appendChild(app.canvas);
       pixiAppRef.current = app;
 
-      const layers = layersRef.current;
+      const layers = {
+        bg: new PIXI.Container(),
+        stars: new PIXI.Container(),
+        entity: new PIXI.Container(),
+        particles: new PIXI.Container(),
+        overlay: new PIXI.Container(),
+        ui: new PIXI.Container()
+      };
       app.stage.addChild(layers.bg, layers.stars, layers.entity, layers.particles, layers.overlay, layers.ui);
 
       // Pre-generate Drone texture
@@ -260,6 +279,7 @@ export default function App() {
       droneGfx.ellipse(0, hh - 4, hw * 0.15, hh * 0.3).fill({ color: 0x002a7a });
       
       droneTextureRef.current = app.renderer.generateTexture(droneGfx);
+      if (!droneTextureRef.current) droneTextureRef.current = PIXI.Texture.EMPTY;
 
       const w = app.screen.width;
       const h = app.screen.height;
@@ -310,7 +330,7 @@ export default function App() {
 
       // Object pools (eliminate GC churn from create/destroy cycles)
       enemyPoolRef.current = new ObjectPool<PIXI.Sprite>(
-        () => { const s = new PIXI.Sprite(droneTextureRef.current!); s.anchor.set(0.5); layers.entity.addChild(s); s.visible = false; return s; },
+        () => { const s = new PIXI.Sprite(droneTextureRef.current || PIXI.Texture.EMPTY); s.anchor.set(0.5); layers.entity.addChild(s); s.visible = false; return s; },
         () => {},
         30
       );
@@ -383,6 +403,16 @@ export default function App() {
       app.stage.eventMode = 'static';
       app.stage.hitArea = new PIXI.Rectangle(0, 0, 10000, 10000);
       app.stage.on('pointerdown', handlePointerDown);
+
+      const handleContextLost = (e: Event) => {
+        e.preventDefault();
+        if (recoveringRef.current) return;
+        recoveringRef.current = true;
+        if (app?.ticker) app.ticker.stop();
+        setRecovering(true);
+        setPixiVersion(v => v + 1);
+      };
+      (app.canvas as HTMLCanvasElement).addEventListener('webglcontextlost', handleContextLost);
 
       const updatePhysics = (timeMs: number) => {
         const g = game.current;
@@ -669,17 +699,28 @@ export default function App() {
     return () => {
       isDestroyed = true;
       if (app.renderer) {
-        app.destroy(true, { children: true });
+        app.ticker?.stop();
+        app.stage.eventMode = 'none';
+        app.stage.removeAllListeners();
+        if (app.canvas?.parentNode) {
+          app.canvas.parentNode.removeChild(app.canvas);
+        }
+        while (app.stage.children.length > 0) {
+          const child = app.stage.children[0];
+          app.stage.removeChild(child);
+          child.destroy(true);
+        }
+        app.destroy(false, { children: false });
       }
       enemyPoolRef.current = null;
       missilePoolRef.current = null;
       textPoolRef.current = null;
     };
-  }, [gameState]);
+  }, [gameState, pixiVersion]);
 
   return (
     <div className="absolute inset-0 flex justify-center bg-black touch-none select-none">
-      {!isReady && <div className="absolute inset-0 bg-slate-900" />}
+      {!isReady && <LoadingTrident className="absolute inset-0 bg-slate-900" />}
       {isReady && (
         <div ref={containerRef} className="relative w-full max-w-[430px] h-full overflow-hidden bg-slate-900 shadow-2xl">
           <AnimatePresence initial={false}>
@@ -702,6 +743,23 @@ export default function App() {
                 <div className="mt-6 flex flex-col gap-2 items-center text-xs text-slate-400">
                   <div className="flex items-center gap-2"><Crosshair className="w-4 h-4"/> {t.tapToShoot}</div>
                 </div>
+                {splashItems.length > 0 && (
+                  <div className="mt-4 flex gap-1.5 overflow-x-auto px-1 py-1 max-w-full" style={{ scrollbarWidth: 'none' }}>
+                    {splashItems.map((item: any) => (
+                      <button
+                        key={item.id}
+                        onClick={() => window.Odesa?.toggleSplashItem?.(item.id)}
+                        className={`flex-shrink-0 px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                          item.visible !== false
+                            ? 'bg-blue-500/30 text-blue-200'
+                            : 'bg-slate-700/50 text-slate-500 grayscale'
+                        }`}
+                      >
+                        {item.icon} {item.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -721,6 +779,11 @@ export default function App() {
               t={{ playAgain: t.deployAgain, tryAgain: t.deployAgain, quit: t.quit }}
             />
           )}
+        </div>
+      )}
+      {recovering && (
+        <div className="absolute inset-0 bg-black/70 z-50">
+          <LoadingTrident text="Restoring..." />
         </div>
       )}
     </div>

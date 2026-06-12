@@ -28,6 +28,7 @@ export interface Game {
   id: string;
   cat: string;
   title: { en: string; uk: string };
+  desc?: { en: string; uk: string };
   url: string;
   icon?: string;
   comingSoon?: boolean;
@@ -60,10 +61,16 @@ export interface PlayerStats {
   droneHighScore: number;
   triviaPercent: number;
   lighthouseHighScore: number;
+  shooterHighScore: number;
   streak: number;
   allVenuesUnlocked: boolean;
   beatHighScoreBy50: boolean;
+  beatHighScoreBy100: boolean;
   highScoreGames: number;
+  uniqueGamesPlayed: number;
+  totalScoreSum: number;
+  activeDays: number;
+  dailyCheckinCount: number;
 }
 
 export interface TournamentWinner {
@@ -89,6 +96,15 @@ export interface VenueTournament {
   status: 'active' | 'ended';
   resolved: boolean;
   winners?: TournamentWinner[];
+}
+
+export interface InventoryItem {
+  purchasedAt: any;
+  paidCost: number;
+}
+
+export interface Inventory {
+  [gameId: string]: Record<string, InventoryItem>;
 }
 
 export interface NotificationPreferences {

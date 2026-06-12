@@ -24,4 +24,5 @@ export interface EngineConfig {
   upgrades: Upgrades;
   globalScore: number;
   totalDockedShips: number;
+  isMobile: boolean;
 }
